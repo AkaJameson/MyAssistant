@@ -1,0 +1,10 @@
+# 忽略 Visual Studio 生成的临时文件夹
+.vs/
+*/**/.vs/
+*/.vs/
+# 递归忽略 * 目录下所有解决方案的 bin 文件夹
+*/**/bin/
+
+# 递归忽略 * 目录下所有解决方案的 obj 文件夹
+*/**/obj/
+/src/MyBlog.WebApi/myblog-webapi.tar

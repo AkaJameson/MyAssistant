@@ -1,0 +1,20 @@
+﻿using LiteDB;
+
+namespace MyAssistant.Data
+{
+    public class KnowledgeSetRepository
+    {
+        private readonly ILiteCollection<KnowledgeSet> _collection;
+
+        public KnowledgeSetRepository(LiteDatabase db)
+        {
+            _collection = db.GetCollection<KnowledgeSet>("knowledge_sets");
+        }
+
+        public ObjectId Insert(KnowledgeSet set) => _collection.Insert(set);
+        public bool Update(KnowledgeSet set) => _collection.Update(set);
+        public bool Delete(ObjectId id) => _collection.Delete(id);
+        public KnowledgeSet? FindById(ObjectId id) => _collection.FindById(id);
+        public IEnumerable<KnowledgeSet> GetAll() => _collection.FindAll();
+    }
+}
