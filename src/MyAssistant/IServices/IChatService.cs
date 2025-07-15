@@ -1,4 +1,5 @@
 ﻿using Microsoft.SemanticKernel;
+using MyAssistant.Data;
 
 namespace MyAssistant.IServices
 {
@@ -8,16 +9,39 @@ namespace MyAssistant.IServices
     public interface IChatService
     {
         /// <summary>
-        /// 非流式
+        /// 删除一个会话
         /// </summary>
-        /// <param name="kernel"></param>
-        /// <returns></returns>
-        Task StartChatSession(Kernel kernel,string input);
+        /// <param name="sessionId"></param>
+        void ClearSession(string sessionId);
         /// <summary>
-        /// 流式
+        /// 获取model配置
         /// </summary>
-        /// <param name="kernel"></param>
         /// <returns></returns>
-        Task StartStreamingChatSession(Kernel kernel,string input);
+        string GetModelConfigs();
+        /// <summary>
+        /// 获取会话
+        /// </summary>
+        /// <param name="sessionId"></param>
+        /// <param name="input"></param>
+        /// <param name="contextLength"></param>
+        /// <returns></returns>
+        Task StartStreamingChatSession(string sessionId, string input, int contextLength);
+        /// <summary>
+        /// 更新内核
+        /// </summary>
+        /// <param name="modelName"></param>
+        /// <returns></returns>
+        Task UpdateKernel(string modelName);
+        /// <summary>
+        /// 更新model配置
+        /// </summary>
+        /// <param name="newConfigsJson"></param>
+        /// <returns></returns>
+        Task UpdateModelConfigs(string newConfigsJson);
+        /// <summary>
+        /// 获取所有会话摘要
+        /// </summary>
+        /// <returns></returns>
+        List<ChatSession> GetChatSessions();
     }
 }

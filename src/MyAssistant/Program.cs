@@ -1,7 +1,12 @@
 using LiteDB;
+using Microsoft.SemanticKernel;
 using MyAssistant.Components;
+using MyAssistant.Core;
 using MyAssistant.Data;
 using MyAssistant.Hubs;
+using MyAssistant.IServices;
+using MyAssistant.Models;
+using MyAssistant.ServiceImpl;
 
 namespace MyAssistant;
 
@@ -16,9 +21,12 @@ public class Program
         {
             return new LiteDatabase("Filename= MyAssistant.db;Connection=shared");
         });
+        builder.Services.AddSingleton(typeof(KernelContext));
         builder.Services.AddScoped<ChatSessionRepository>();
         builder.Services.AddScoped<KnowledgeFileRepository>();
         builder.Services.AddScoped<KnowledgeSetRepository>();
+        builder.Services.AddScoped<IChatService, ChatServiceImpl>();
+        builder.Services.AddSingleton<IChatContext, ChatContext>();
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
 
