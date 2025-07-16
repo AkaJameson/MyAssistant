@@ -50,6 +50,5 @@ namespace MyAssistant.Core
             kernelBuilder.AddOpenAIChatCompletion(defaultModel.Model, new Uri(defaultModel.Endpoint), defaultModel.ApiKey);
             Kernel = kernelBuilder.Build();
         }
-
     }
 }

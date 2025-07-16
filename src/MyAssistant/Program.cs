@@ -21,12 +21,13 @@ public class Program
         {
             return new LiteDatabase("Filename= MyAssistant.db;Connection=shared");
         });
-        builder.Services.AddSingleton(typeof(KernelContext));
+        builder.Services.AddSingleton<KernelContext>();
+        builder.Services.AddSingleton<IChatContext, ChatContext>();
         builder.Services.AddScoped<ChatSessionRepository>();
         builder.Services.AddScoped<KnowledgeFileRepository>();
         builder.Services.AddScoped<KnowledgeSetRepository>();
         builder.Services.AddScoped<IChatService, ChatServiceImpl>();
-        builder.Services.AddSingleton<IChatContext, ChatContext>();
+        builder.Services.AddScoped<IKnowledgeService, KnowledgeServiceImpl>();
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
 

@@ -1,4 +1,5 @@
-﻿using Microsoft.SemanticKernel.ChatCompletion;
+﻿using Microsoft.Extensions.AI;
+using Microsoft.SemanticKernel.ChatCompletion;
 using MyAssistant.IServices;
 using System.Collections.Concurrent;
 
@@ -6,16 +7,16 @@ namespace MyAssistant.Core
 {
     public class ChatContext : IChatContext
     {
-        private readonly ConcurrentDictionary<string, (Microsoft.SemanticKernel.ChatCompletion.ChatHistory History, DateTime LastActive)> _chatHistories = new();
+        private readonly ConcurrentDictionary<string, (ChatHistory History, DateTime LastActive)> _chatHistories = new();
 
-        public Microsoft.SemanticKernel.ChatCompletion.ChatHistory GetOrCreateChatHistory(string sessionId)
+        public ChatHistory GetOrCreateChatHistory(string sessionId)
         {
             if (string.IsNullOrWhiteSpace(sessionId))
             {
                 throw new ArgumentException("会话 ID 不能为空。");
             }
 
-            var result = _chatHistories.GetOrAdd(sessionId, _ => (new Microsoft.SemanticKernel.ChatCompletion.ChatHistory(), DateTime.UtcNow));
+            var result = _chatHistories.GetOrAdd(sessionId, _ => (new ChatHistory(), DateTime.UtcNow));
             UpdateLastActive(sessionId); // 更新活跃时间
             return result.History;
         }
@@ -44,5 +45,25 @@ namespace MyAssistant.Core
                 }
             }
         }
+
+        public void AddSystemMessage(string sessionId, string message)
+        {
+            if (string.IsNullOrWhiteSpace(sessionId))
+            {
+                throw new ArgumentException("会话 ID 不能为空。");
+            }
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                throw new ArgumentException("消息内容不能为空。");
+            }
+            var chatHistory = GetOrCreateChatHistory(sessionId);
+
+            foreach (var msg in chatHistory.AsEnumerable().Where(p => p.Role == AuthorRole.System).ToList())
+            {
+                chatHistory.Remove(msg);
+            }
+            chatHistory.AddSystemMessage(message);
+        }
+
     }
 }

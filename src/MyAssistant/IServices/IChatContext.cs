@@ -8,5 +8,6 @@ namespace MyAssistant.IServices
         void RemoveChatHistory(string sessionId);
         void UpdateLastActive(string sessionId);
         void CleanupInactiveSessions(TimeSpan timeout);
+        void AddSystemMessage(string sessionId, string message);
     }
 }

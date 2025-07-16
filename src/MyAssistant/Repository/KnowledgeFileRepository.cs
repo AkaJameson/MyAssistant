@@ -18,5 +18,18 @@ namespace MyAssistant.Data
         public IEnumerable<KnowledgeFile> GetBySetId(ObjectId setId) =>
             _collection.Find(x => x.KnowledgeSetId == setId);
         public IEnumerable<KnowledgeFile> GetAll() => _collection.FindAll();
+        public bool DeleteBySetId(ObjectId setId)
+        {
+            var files = _collection.Find(x => x.KnowledgeSetId == setId);
+            if (files.Count() == 0)
+            {
+                return false;
+            }
+            foreach (var file in files)
+            {
+                _collection.Delete(file.Id);
+            }
+            return true;
+        }
     }
 }

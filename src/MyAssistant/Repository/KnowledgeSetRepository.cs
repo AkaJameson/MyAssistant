@@ -1,4 +1,5 @@
 ﻿using LiteDB;
+using System.Linq.Expressions;
 
 namespace MyAssistant.Data
 {
@@ -16,5 +17,7 @@ namespace MyAssistant.Data
         public bool Delete(ObjectId id) => _collection.Delete(id);
         public KnowledgeSet? FindById(ObjectId id) => _collection.FindById(id);
         public IEnumerable<KnowledgeSet> GetAll() => _collection.FindAll();
+        public IEnumerable<KnowledgeSet> Find(Expression<Func<KnowledgeSet, bool>> predicate) => _collection.Find(predicate);
+
     }
 }
