@@ -88,95 +88,55 @@ namespace MyAssistant.ServiceImpl
             }
         }
 
-        public async Task StartStreamingChatSession(string sessionId, string input, int contextLength = 20, params IBrowserFile[] browserFile)
+        /// <summary>
+        /// 上传文档
+        /// </summary>
+        /// <param name="sessionId"></param>
+        /// <param name="files"></param>
+        /// <returns></returns>
+        public async Task AttachFileContentToSession(string sessionId, IBrowserFile[] files)
         {
-            if (string.IsNullOrWhiteSpace(sessionId) || string.IsNullOrWhiteSpace(input))
-            {
-                throw new ArgumentException("会话 ID 和输入不能为空。");
-            }
-            if (browserFile != null && browserFile.Length > 0)
-            {
-                var documentString = new StringBuilder();
-                foreach (var file in browserFile)
-                {
-                    if (file.Size > 10 * 1024 * 1024 || !DocumentHelper.IsSupportedFileType(file.Name))
-                    {
-                        continue;
-                    }
-                    var fileContent = await DocumentHelper.ExtractFromFileAsync(file);
-                    documentString.AppendLine($"{file.Name}: {fileContent}");
-                    documentString.Append(Environment.NewLine);
-                }
-                input += Environment.NewLine + documentString.ToString();
-            }
-            var chatService = kernelManager.Current.GetRequiredService<IChatCompletionService>();
-            var chatSession = chatSessionRepository.FindBySessionId(sessionId);
+            if (files == null || files.Length == 0) return;
+
+            var content = await ProcessUploadedFiles(files);
+            if (string.IsNullOrWhiteSpace(content)) return;
+
             var history = chatContext.GetOrCreateChatHistory(sessionId);
-            try
+            history.AddSystemMessage($"以下是用户上传的参考文档内容：\n\n{content}");
+        }
+        /// <summary>
+        /// 处理上传的文件
+        /// </summary>
+        /// <param name="browserFiles"></param>
+        /// <returns></returns>
+        public async Task<string> ProcessUploadedFiles(params IBrowserFile[] browserFiles)
+        {
+            if (browserFiles == null || browserFiles.Length == 0) return string.Empty;
+
+            var documentString = new StringBuilder();
+            foreach (var file in browserFiles)
             {
-                // 同步数据库中的历史记录（仅在首次加载会话时）
-                if (chatSession != null && history.Count == 0)
+                if (file.Size > 10 * 1024 * 1024 || !DocumentHelper.IsSupportedFileType(file.Name))
                 {
-                    var messages = contextLength > 0
-                        ? chatSession.Messages.TakeLast(contextLength)
-                        : chatSession.Messages;
-                    foreach (var msg in messages)
-                    {
-                        history.AddUserMessage(msg.UserInput);
-                        history.AddAssistantMessage(msg.AssistantResponse);
-                    }
-                }
-                else if (chatSession == null)
-                {
-                    chatSession = new ChatSession
-                    {
-                        Id = new LiteDB.ObjectId(sessionId),
-                        SessionId = sessionId,
-                        CreatedAt = DateTime.UtcNow,
-                        LastUpdatedAt = DateTime.UtcNow,
-                        Messages = new List<ChatMessage>()
-                    };
+                    continue;
                 }
 
-                history.AddUserMessage(input);
-                var response = chatService.GetStreamingChatMessageContentsAsync(history, kernel: kernelManager.Current);
-                string resStr = "";
-                int round = chatSession.Messages.Count + 1;
-
-                await foreach (var chunk in response)
-                {
-                    await hubContext.Clients.All.SendAsync(EventType.ChatMessage, chunk);
-                    resStr += chunk;
-                }
-
-                history.AddAssistantMessage(resStr);
-                chatSession.Messages.Add(new ChatMessage
-                {
-                    Round = round,
-                    UserInput = input,
-                    AssistantResponse = resStr,
-                    Event = EventType.ChatMessage,
-                    Timestamp = DateTime.UtcNow
-                });
-
-                // 保存会话到数据库
-                if (chatSession.Id == null)
-                {
-                    chatSessionRepository.Insert(chatSession);
-                }
-                else
-                {
-                    chatSessionRepository.Update(chatSession);
-                }
-
-                chatContext.UpdateLastActive(sessionId);
+                var fileContent = await DocumentHelper.ExtractFromFileAsync(file);
+                documentString.AppendLine($"{file.Name}: {fileContent}");
+                documentString.AppendLine();
             }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"处理聊天会话失败：{ex.Message}");
-            }
+            return documentString.ToString();
         }
 
+
+
+        /// <summary>
+        /// 更细腻模型配置
+        /// </summary>
+        /// <param name="newConfigsJson"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="InvalidOperationException"></exception>
         public async Task UpdateModelConfigs(string newConfigsJson)
         {
             try
@@ -220,7 +180,10 @@ namespace MyAssistant.ServiceImpl
                 throw new InvalidOperationException($"更新 ModelConfigs 失败：{ex.Message}");
             }
         }
-
+        /// <summary>
+        /// 删除会话
+        /// </summary>
+        /// <param name="sessionId"></param>
         public void ClearSession(string sessionId)
         {
             chatContext.RemoveChatHistory(sessionId);

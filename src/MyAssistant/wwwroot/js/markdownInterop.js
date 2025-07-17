@@ -1,4 +1,5 @@
-﻿window.markdownInterop = {
+﻿
+window.markdownInterop = {
     renderMarkdown: function (markdownText) {
         const md = window.markdownit();
         return md.render(markdownText);
@@ -7,4 +8,10 @@
 
 window.scrollToBottom = function (element) {
     element.scrollTop = element.scrollHeight;
+};
+
+window.preventDefaultEnter = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+    }
 };
