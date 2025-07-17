@@ -1,4 +1,5 @@
-﻿using Microsoft.SemanticKernel;
+﻿using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.SemanticKernel;
 using MyAssistant.Data;
 
 namespace MyAssistant.IServices
@@ -25,7 +26,7 @@ namespace MyAssistant.IServices
         /// <param name="input"></param>
         /// <param name="contextLength"></param>
         /// <returns></returns>
-        Task StartStreamingChatSession(string sessionId, string input, int contextLength);
+        Task StartStreamingChatSession(string sessionId, string input, int contextLength = 20, params IBrowserFile[] browserFile);
         /// <summary>
         /// 更新内核
         /// </summary>

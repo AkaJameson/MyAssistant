@@ -1,7 +1,8 @@
 ﻿using LiteDB;
+using MyAssistant.Data;
 using System.Linq.Expressions;
 
-namespace MyAssistant.Data
+namespace MyAssistant.Repository
 {
     public class KnowledgeSetRepository
     {

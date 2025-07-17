@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using MyAssistant.Core;
@@ -6,6 +7,9 @@ using MyAssistant.Data;
 using MyAssistant.Hubs;
 using MyAssistant.IServices;
 using MyAssistant.Models;
+using MyAssistant.Repository;
+using MyAssistant.Utils;
+using System.Text;
 using System.Text.Json;
 
 namespace MyAssistant.ServiceImpl
@@ -15,7 +19,7 @@ namespace MyAssistant.ServiceImpl
         private readonly IHubContext<ChatHub> hubContext;
         private readonly IConfiguration configuration;
         private readonly ChatSessionRepository chatSessionRepository;
-        private readonly IChatContext chatHistoryManager;
+        private readonly ChatContext chatContext;
         private readonly KernelContext kernelManager;
         private string _currentModelName;
 
@@ -23,13 +27,13 @@ namespace MyAssistant.ServiceImpl
             IHubContext<ChatHub> hubContext,
             IConfiguration configuration,
             ChatSessionRepository chatSessionRepository,
-            IChatContext chatHistoryManager,
+            ChatContext chatContext,
             KernelContext kernel)
         {
             this.hubContext = hubContext;
             this.configuration = configuration;
             this.chatSessionRepository = chatSessionRepository;
-            this.chatHistoryManager = chatHistoryManager;
+            this.chatContext = chatContext;
             this.kernelManager = kernel;
         }
 
@@ -74,13 +78,7 @@ namespace MyAssistant.ServiceImpl
                 {
                     throw new InvalidOperationException($"无效的模型配置：{modelName}");
                 }
-
-                // 清空当前 Kernel 的服务并重新配置
-                var builder = Kernel.CreateBuilder();
-                builder.AddOpenAIChatCompletion(modelConfig.Model, new Uri(modelConfig.Endpoint), modelConfig.ApiKey);
-                var newKernel = builder.Build();
-
-                kernelManager.Current = newKernel;
+                kernelManager.BuildKernelByModel(modelName);
                 _currentModelName = modelName;
                 return Task.CompletedTask;
             }
@@ -90,21 +88,30 @@ namespace MyAssistant.ServiceImpl
             }
         }
 
-        public async Task StartStreamingChatSession(string sessionId, string input, int contextLength)
+        public async Task StartStreamingChatSession(string sessionId, string input, int contextLength = 20, params IBrowserFile[] browserFile)
         {
             if (string.IsNullOrWhiteSpace(sessionId) || string.IsNullOrWhiteSpace(input))
             {
                 throw new ArgumentException("会话 ID 和输入不能为空。");
             }
-            if (contextLength < 0)
+            if (browserFile != null && browserFile.Length > 0)
             {
-                throw new ArgumentException("上下文长度不能为负数。");
+                var documentString = new StringBuilder();
+                foreach (var file in browserFile)
+                {
+                    if (file.Size > 10 * 1024 * 1024 || !DocumentHelper.IsSupportedFileType(file.Name))
+                    {
+                        continue;
+                    }
+                    var fileContent = await DocumentHelper.ExtractFromFileAsync(file);
+                    documentString.AppendLine($"{file.Name}: {fileContent}");
+                    documentString.Append(Environment.NewLine);
+                }
+                input += Environment.NewLine + documentString.ToString();
             }
-
             var chatService = kernelManager.Current.GetRequiredService<IChatCompletionService>();
             var chatSession = chatSessionRepository.FindBySessionId(sessionId);
-            var history = chatHistoryManager.GetOrCreateChatHistory(sessionId);
-
+            var history = chatContext.GetOrCreateChatHistory(sessionId);
             try
             {
                 // 同步数据库中的历史记录（仅在首次加载会话时）
@@ -162,7 +169,7 @@ namespace MyAssistant.ServiceImpl
                     chatSessionRepository.Update(chatSession);
                 }
 
-                chatHistoryManager.UpdateLastActive(sessionId);
+                chatContext.UpdateLastActive(sessionId);
             }
             catch (Exception ex)
             {
@@ -216,7 +223,7 @@ namespace MyAssistant.ServiceImpl
 
         public void ClearSession(string sessionId)
         {
-            chatHistoryManager.RemoveChatHistory(sessionId);
+            chatContext.RemoveChatHistory(sessionId);
             var chatSession = chatSessionRepository.FindBySessionId(sessionId);
             if (chatSession != null)
             {
@@ -232,6 +239,6 @@ namespace MyAssistant.ServiceImpl
             return chatSessionRepository.GetAllSummery().ToList();
         }
 
-      
+
     }
 }

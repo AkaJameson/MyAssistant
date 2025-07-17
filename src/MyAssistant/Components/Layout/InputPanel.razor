@@ -1,0 +1,80 @@
+﻿<div class="input-group">
+    <textarea class="form-control"
+              placeholder="Type your message..."
+              @bind="currentMessage"
+              @bind:event="oninput"
+              @onkeypress="HandleKeyPress"
+              rows="1"
+              style="resize: none; min-height: 38px; max-height: 150px;"
+              @ref="textareaRef"></textarea>
+
+    <div class="input-group-append">
+        <button class="btn btn-outline-secondary" type="button" @onclick="ClearInput">
+            <i class="bi bi-x-lg"></i>
+        </button>
+        <button class="btn btn-primary" type="button" @onclick="SendMessage"
+                disabled="@(string.IsNullOrWhiteSpace(currentMessage) || isLoading)">
+            @if (isLoading)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            }
+            else
+            {
+                <i class="bi bi-send-fill"></i>
+            }
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<string> OnSend { get; set; }
+
+    [Parameter]
+    public bool isLoading { get; set; }
+
+    private string currentMessage = "";
+    private ElementReference textareaRef;
+
+    private async Task SendMessage()
+    {
+        if (!string.IsNullOrWhiteSpace(currentMessage))
+        {
+            await OnSend.InvokeAsync(currentMessage);
+            currentMessage = "";
+            await AdjustTextareaHeight();
+        }
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            e.PreventDefault(); // 阻止换行
+            await SendMessage();
+        }
+    }
+
+    private async Task ClearInput()
+    {
+        currentMessage = "";
+        await AdjustTextareaHeight();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await textareaRef.FocusAsync();
+        }
+    }
+
+    private async Task AdjustTextareaHeight()
+    {
+        // 调整文本域高度
+        await JSRuntime.InvokeVoidAsync("adjustTextareaHeight", textareaRef);
+    }
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+}

@@ -1,6 +1,6 @@
 ﻿using LiteDB;
-using MyAssistant.Data;
-using MyAssistant.IServices;
+using MyAssistant.Core;
+using MyAssistant.Repository;
 using System.Text;
 
 namespace MyAssistant.ServiceImpl
@@ -9,15 +9,16 @@ namespace MyAssistant.ServiceImpl
     {
         private readonly KnowledgeSetRepository _setRepo;
         private readonly KnowledgeFileRepository _fileRepo;
-        private IChatContext chatContext;
+        private ChatContext chatContext;
 
-        public AgentServiceImpl(KnowledgeSetRepository setRepo, KnowledgeFileRepository fileRepo, IChatContext chatContext)
+        public AgentServiceImpl(KnowledgeSetRepository setRepo, KnowledgeFileRepository fileRepo, ChatContext chatContext)
         {
             _setRepo = setRepo;
             _fileRepo = fileRepo;
             this.chatContext = chatContext;
         }
-        public void AddKnowledgeToSystemMessage(string sessionId, ObjectId knowledgeSetId)
+
+        public void BuildPrompt(string sessionId, ObjectId knowledgeSetId)
         {
             var set = _setRepo.FindById(knowledgeSetId);
             if (set == null)
@@ -29,21 +30,19 @@ namespace MyAssistant.ServiceImpl
 
             var sb = new StringBuilder();
 
+            // 获取模板
+            string template = set.PromptTemplate;
+
+            // 将每个文件的标题占位符替换为对应的内容
             foreach (var file in files)
             {
-                string message = set.PromptTemplate;
-
-                // 简单替换模板中 {{标题}} 和 {{内容}}
-                message = message.Replace("{{标题}}", file.Title)
-                                 .Replace("{{内容}}", file.Content);
-
-                sb.AppendLine(message);
-                sb.AppendLine(); // 换行分隔
+                // 将模板中的 {{title}} 替换为对应文件的内容
+                string placeholder = "{{" + file.Title + "}}";
+                template = template.Replace(placeholder, file.Content);
             }
-
+            sb.Append(template);
             string finalMessage = sb.ToString().Trim();
             chatContext.AddSystemMessage(sessionId, finalMessage);
         }
-     
     }
 }

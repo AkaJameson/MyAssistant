@@ -2,6 +2,7 @@
 using MyAssistant.Core;
 using MyAssistant.Data;
 using MyAssistant.IServices;
+using MyAssistant.Repository;
 
 namespace MyAssistant.ServiceImpl
 {

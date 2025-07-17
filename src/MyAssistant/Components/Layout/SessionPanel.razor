@@ -1,0 +1,96 @@
+﻿<div class="d-flex flex-column h-100">
+    <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+        <h5 class="mb-0">Chat Sessions</h5>
+        <button class="btn btn-sm btn-primary" @onclick="CreateNewSession">
+            <i class="bi bi-plus-lg"></i> New
+        </button>
+    </div>
+
+    <div class="flex-grow-1 overflow-auto">
+        <ul class="list-group list-group-flush">
+            @foreach (var session in sessions)
+            {
+                <li class="list-group-item @(session.Id == activeSessionId ? "active" : "")"
+                    @onclick="() => SelectSession(session.Id)">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">@session.Title</h6>
+                        <small>@session.LastActivity.ToString("g")</small>
+                    </div>
+                    <p class="mb-1 text-truncate small">@session.Preview</p>
+                </li>
+            }
+        </ul>
+    </div>
+
+    <div class="border-top p-3">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="autoScrollToggle" @bind="autoScrollEnabled">
+            <label class="form-check-label small" for="autoScrollToggle">Auto Scroll</label>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<Guid> OnSessionSelected { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OnAutoScrollChanged { get; set; }
+
+    private List<ChatSession> sessions = new();
+    private Guid activeSessionId;
+    private bool autoScrollEnabled = true;
+
+    protected override void OnInitialized()
+    {
+        // 初始化示例会话数据
+        sessions = new List<ChatSession>
+        {
+            new() {
+                Id = Guid.NewGuid(),
+                Title = "API Integration",
+                LastActivity = DateTime.Now.AddHours(-1),
+                Preview = "How to connect to OpenAI API..."
+            },
+            new() {
+                Id = Guid.NewGuid(),
+                Title = "Documentation",
+                LastActivity = DateTime.Now.AddMinutes(-30),
+                Preview = "Explain the following code..."
+            }
+        };
+        activeSessionId = sessions.First().Id;
+    }
+
+    private void CreateNewSession()
+    {
+        var newSession = new ChatSession
+            {
+                Id = Guid.NewGuid(),
+                Title = $"Session {sessions.Count + 1}",
+                LastActivity = DateTime.Now,
+                Preview = "New chat started"
+            };
+        sessions.Insert(0, newSession);
+        SelectSession(newSession.Id);
+    }
+
+    private async Task SelectSession(Guid sessionId)
+    {
+        activeSessionId = sessionId;
+        await OnSessionSelected.InvokeAsync(sessionId);
+    }
+
+    private void ToggleAutoScroll()
+    {
+        OnAutoScrollChanged.InvokeAsync(autoScrollEnabled);
+    }
+
+    public class ChatSession
+    {
+        public Guid Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public DateTime LastActivity { get; set; }
+        public string Preview { get; set; } = string.Empty;
+    }
+}

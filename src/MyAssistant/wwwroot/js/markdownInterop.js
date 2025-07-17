@@ -4,3 +4,7 @@
         return md.render(markdownText);
     }
 }
+
+window.scrollToBottom = function (element) {
+    element.scrollTop = element.scrollHeight;
+};

@@ -1,11 +1,9 @@
-﻿using Microsoft.Extensions.AI;
-using Microsoft.SemanticKernel.ChatCompletion;
-using MyAssistant.IServices;
+﻿using Microsoft.SemanticKernel.ChatCompletion;
 using System.Collections.Concurrent;
 
 namespace MyAssistant.Core
 {
-    public class ChatContext : IChatContext
+    public class ChatContext
     {
         private readonly ConcurrentDictionary<string, (ChatHistory History, DateTime LastActive)> _chatHistories = new();
 
@@ -64,6 +62,7 @@ namespace MyAssistant.Core
             }
             chatHistory.AddSystemMessage(message);
         }
+
 
     }
 }

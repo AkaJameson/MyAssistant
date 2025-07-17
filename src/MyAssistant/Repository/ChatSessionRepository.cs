@@ -1,6 +1,7 @@
 ﻿using LiteDB;
+using MyAssistant.Data;
 
-namespace MyAssistant.Data
+namespace MyAssistant.Repository
 {
     public class ChatSessionRepository
     {
