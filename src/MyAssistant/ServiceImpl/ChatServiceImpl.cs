@@ -58,6 +58,12 @@ namespace MyAssistant.ServiceImpl
             }
         }
 
+        /// <summary>
+        /// 更新内核
+        /// </summary>
+        /// <param name="modelName"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
         public Task UpdateKernel(string modelName)
         {
             if (_currentModelName == modelName)
@@ -87,7 +93,6 @@ namespace MyAssistant.ServiceImpl
                 throw new InvalidOperationException($"更新内核失败：{ex.Message}");
             }
         }
-
         /// <summary>
         /// 上传文档
         /// </summary>
@@ -127,9 +132,6 @@ namespace MyAssistant.ServiceImpl
             }
             return documentString.ToString();
         }
-
-
-
         /// <summary>
         /// 更细腻模型配置
         /// </summary>

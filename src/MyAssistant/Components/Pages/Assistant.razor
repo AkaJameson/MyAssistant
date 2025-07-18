@@ -1,0 +1,403 @@
+﻿@page "/ai-assistant"
+@using System.ComponentModel.DataAnnotations
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid h-100">
+    <div class="row h-100">
+        <!-- 左侧历史会话面板 -->
+        <div class="col-md-3 bg-light p-3 h-100 d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>历史会话</h4>
+                <button class="btn btn-sm btn-primary" @onclick="CreateNewSession">
+                    <i class="bi bi-plus-lg"></i> 新建会话
+                </button>
+            </div>
+
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" placeholder="搜索会话..." @bind="searchTerm" />
+                <button class="btn btn-outline-secondary" type="button">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+
+            <div class="flex-grow-1 overflow-auto">
+                <ul class="list-group">
+                    @foreach (var session in filteredSessions)
+                    {
+                        <li class="list-group-item list-group-item-action @(session.Id == activeSessionId ? "active" : "")"
+                            @onclick="() => SetActiveSession(session.Id)">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">@session.Title</h6>
+                                <small>@session.LastActivity.ToString("g")</small>
+                            </div>
+                            <p class="mb-1 text-truncate">@session.LastMessagePreview</p>
+                        </li>
+                    }
+                </ul>
+            </div>
+
+            <div class="mt-auto pt-3 border-top">
+                <button class="btn btn-outline-danger w-100" @onclick="ConfirmDeleteSession">
+                    <i class="bi bi-trash"></i> 删除当前会话
+                </button>
+            </div>
+        </div>
+
+        <!-- 右侧聊天区域 -->
+        <div class="col-md-9 d-flex flex-column h-100">
+            <div class="d-flex justify-content-between align-items-center border-bottom p-3">
+                <h4>@activeSession?.Title</h4>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary me-2" @onclick="ToggleChatSettings">
+                        <i class="bi bi-gear"></i> 设置
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" @onclick="ExportConversation">
+                        <i class="bi bi-download"></i> 导出对话
+                    </button>
+                </div>
+            </div>
+
+            <!-- 聊天设置面板 -->
+            @if (showChatSettings)
+            {
+                <div class="p-3 bg-light mb-3">
+                    <h5>对话设置</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">模型选择</label>
+                                <select class="form-select" @bind="modelSelection">
+                                    <option value="gpt-4">GPT-4</option>
+                                    <option value="gpt-3.5">GPT-3.5 Turbo</option>
+                                    <option value="claude">Claude 3</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">语言风格</label>
+                                <select class="form-select" @bind="languageStyle">
+                                    <option value="professional">专业正式</option>
+                                    <option value="casual">轻松随意</option>
+                                    <option value="technical">技术风格</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="historyContext" @bind="useHistoryContext">
+                        <label class="form-check-label" for="historyContext">使用历史上下文</label>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button class="btn btn-sm btn-primary" @onclick="SaveSettings">保存设置</button>
+                    </div>
+                </div>
+            }
+
+            <!-- 消息区域 -->
+            <div class="flex-grow-1 overflow-auto p-3" id="chat-messages">
+                @if (activeSession != null)
+                {
+                    @foreach (var message in activeSession.Messages)
+                    {
+                        <div class="mb-3">
+                            <MessageCard Message="message" OnExport="ExportMessage" />
+                        </div>
+                    }
+                }
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="border-top p-3">
+                <div class="d-flex">
+                    <div class="flex-grow-1 me-2 position-relative">
+                        <textarea class="form-control" rows="2" placeholder="输入您的问题..."
+                                  @bind="newMessage" @onkeydown="HandleKeyDown"></textarea>
+                        <div class="position-absolute top-0 end-0 mt-2 me-2">
+                            <label class="btn btn-sm btn-outline-secondary mb-0" title="上传文件">
+                                <i class="bi bi-paperclip"></i>
+                                <input type="file" class="d-none" @onchange="(e)=>HandleFileUpload()" multiple />
+                            </label>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary align-self-end" @onclick="SendMessage" disabled="@isSending">
+                        @if (isSending)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-send"></i>
+                        }
+                        发送
+                    </button>
+                </div>
+
+                @if (attachedFiles.Any())
+                {
+                    <div class="mt-2">
+                        <small class="text-muted">已上传文件：</small>
+                        @foreach (var file in attachedFiles)
+                        {
+                            <span class="badge bg-secondary me-1">
+                                @file.Name
+                                <i class="bi bi-x" @onclick="() => RemoveFile(file)"></i>
+                            </span>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 消息卡片组件 -->
+<MessageCard Message="message" OnExport="ExportMessage" />
+
+@code {
+    // 会话模型
+    public class ChatSession
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Title { get; set; } = "新会话";
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime LastActivity { get; set; } = DateTime.Now;
+        public string LastMessagePreview { get; set; } = "";
+        public List<ChatMessage> Messages { get; set; } = new();
+    }
+
+    // 消息模型
+    public class ChatMessage
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public bool IsUser { get; set; }
+        public string Content { get; set; } = "";
+        public DateTime Timestamp { get; set; } = DateTime.Now;
+        public List<UploadedFile> Files { get; set; } = new();
+    }
+
+    // 上传文件模型
+    public class UploadedFile
+    {
+        public string Name { get; set; } = "";
+        public long Size { get; set; }
+        public string ContentType { get; set; } = "";
+    }
+
+    // 状态变量
+    private List<ChatSession> sessions = new();
+    private Guid activeSessionId;
+    private ChatSession activeSession => sessions.FirstOrDefault(s => s.Id == activeSessionId);
+    private string searchTerm = "";
+    private string newMessage = "";
+    private List<UploadedFile> attachedFiles = new();
+    private bool isSending = false;
+    private bool showChatSettings = false;
+
+    // 设置变量
+    private string modelSelection = "gpt-4";
+    private string languageStyle = "professional";
+    private bool useHistoryContext = true;
+
+    protected override void OnInitialized()
+    {
+        // 初始化示例数据
+        sessions.Add(new ChatSession
+            {
+                Title = "AI 项目规划",
+                LastMessagePreview = "我们需要考虑数据收集和模型训练...",
+                Messages = new List<ChatMessage>
+            {
+                new ChatMessage { IsUser = true, Content = "如何规划一个AI项目？" },
+                new ChatMessage { IsUser = false, Content = "规划AI项目需要考虑以下关键步骤..." }
+            }
+            });
+
+        sessions.Add(new ChatSession
+            {
+                Title = "技术架构咨询",
+                LastMessagePreview = "建议使用微服务架构...",
+                Messages = new List<ChatMessage>
+            {
+                new ChatMessage { IsUser = true, Content = "哪种架构适合大型AI系统？" },
+                new ChatMessage { IsUser = false, Content = "对于大型AI系统，我建议..." }
+            }
+            });
+
+        activeSessionId = sessions.First().Id;
+    }
+
+    // 过滤会话列表
+    private IEnumerable<ChatSession> filteredSessions =>
+        sessions.Where(s => s.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+               s.LastMessagePreview.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+               .OrderByDescending(s => s.LastActivity);
+
+    // 创建新会话
+    private void CreateNewSession()
+    {
+        var newSession = new ChatSession();
+        sessions.Add(newSession);
+        activeSessionId = newSession.Id;
+    }
+
+    // 设置活动会话
+    private void SetActiveSession(Guid sessionId)
+    {
+        activeSessionId = sessionId;
+    }
+
+    // 发送消息
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(newMessage) && !attachedFiles.Any()) return;
+
+        isSending = true;
+
+        // 添加用户消息
+        var userMessage = new ChatMessage
+            {
+                IsUser = true,
+                Content = newMessage,
+                Files = new List<UploadedFile>(attachedFiles)
+            };
+
+        activeSession.Messages.Add(userMessage);
+        UpdateSessionPreview();
+
+        // 模拟AI响应
+        var aiResponse = new ChatMessage
+            {
+                IsUser = false,
+                Content = "这是AI生成的回复。在实际应用中，这里将连接到AI模型生成响应。",
+                Timestamp = DateTime.Now
+            };
+
+        // 模拟延迟
+        await Task.Delay(1000);
+
+        activeSession.Messages.Add(aiResponse);
+        UpdateSessionPreview();
+
+        // 重置状态
+        newMessage = "";
+        attachedFiles.Clear();
+        isSending = false;
+
+        // 滚动到底部
+        await JSRuntime.InvokeVoidAsync("scrollToBottom", "chat-messages");
+    }
+
+    // 更新会话预览
+    private void UpdateSessionPreview()
+    {
+        var lastMessage = activeSession.Messages.LastOrDefault();
+        if (lastMessage != null)
+        {
+            activeSession.LastActivity = lastMessage.Timestamp;
+            activeSession.LastMessagePreview = lastMessage.Content.Length > 50
+                ? lastMessage.Content.Substring(0, 50) + "..."
+                : lastMessage.Content;
+        }
+    }
+
+    // 处理文件上传
+    private void HandleFileUpload()
+    {
+        // foreach (var file in e.GetMultipleFiles())
+        // {
+        //     attachedFiles.Add(new UploadedFile
+        //         {
+        //             Name = file.Name,
+        //             Size = file.Size,
+        //             ContentType = file.ContentType
+        //         });
+        // }
+    }
+
+    // 移除文件
+    private void RemoveFile(UploadedFile file)
+    {
+        attachedFiles.Remove(file);
+    }
+
+    // 处理键盘事件 (Enter发送)
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            // e.PreventDefault();
+            await SendMessage();
+        }
+    }
+
+    // 导出消息
+    private async Task ExportMessage(ChatMessage message)
+    {
+        await JSRuntime.InvokeVoidAsync("exportToMarkdown", message.Content);
+    }
+
+    // 导出整个对话
+    private async Task ExportConversation()
+    {
+        if (activeSession == null) return;
+
+        var markdownContent = $"# {activeSession.Title}\n\n";
+        foreach (var msg in activeSession.Messages)
+        {
+            markdownContent += $"## {(msg.IsUser ? "用户" : "助手")} - {msg.Timestamp:g}\n\n";
+            markdownContent += $"{msg.Content}\n\n";
+
+            if (msg.Files.Any())
+            {
+                markdownContent += "**附件**:\n";
+                foreach (var file in msg.Files)
+                {
+                    markdownContent += $"- {file.Name} ({FormatFileSize(file.Size)})\n";
+                }
+                markdownContent += "\n";
+            }
+        }
+
+        await JSRuntime.InvokeVoidAsync("exportToMarkdown", markdownContent);
+    }
+
+    // 格式化文件大小
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        int order = 0;
+        double size = bytes;
+
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size /= 1024;
+        }
+
+        return $"{size:0.##} {sizes[order]}";
+    }
+
+    // 切换聊天设置
+    private void ToggleChatSettings()
+    {
+        showChatSettings = !showChatSettings;
+    }
+
+    // 保存设置
+    private void SaveSettings()
+    {
+        showChatSettings = false;
+        // 在实际应用中，这里会保存设置到数据库或状态管理
+    }
+
+    // 确认删除会话
+    private void ConfirmDeleteSession()
+    {
+        if (activeSession != null)
+        {
+            sessions.Remove(activeSession);
+            activeSessionId = sessions.FirstOrDefault()?.Id ?? Guid.Empty;
+        }
+    }
+}

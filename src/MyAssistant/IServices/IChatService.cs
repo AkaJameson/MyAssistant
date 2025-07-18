@@ -26,7 +26,7 @@ namespace MyAssistant.IServices
         /// <param name="input"></param>
         /// <param name="contextLength"></param>
         /// <returns></returns>
-        Task StartStreamingChatSession(string sessionId, string input, int contextLength = 20, params IBrowserFile[] browserFile);
+        //Task StartStreamingChatSession(string sessionId, string input, int contextLength = 20);
         /// <summary>
         /// 更新内核
         /// </summary>

@@ -22,7 +22,6 @@ namespace MyAssistant.Core
                 // 添加系统提示
                 history.AddSystemMessage("首要要求：- 所有输出请使用 Markdown 格式");
 
-                // 加载数据库内容（如提供）
                 if (chatSession != null)
                 {
                     foreach (var msg in chatSession.Messages)

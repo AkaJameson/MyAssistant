@@ -1,0 +1,77 @@
+﻿@using MyAssistant.Data
+<div class="card @(Message.IsUser ? "border-primary" : "border-success")">
+    <div class="card-header d-flex justify-content-between @(Message.IsUser ? "bg-primary text-white" : "bg-success text-white")">
+        <div>
+            <i class="bi @(Message.IsUser ? "bi-person-fill" : "bi-robot") me-2"></i>
+            <strong>@(Message. ? "您" : "AI助手")</strong>
+        </div>
+        <div>
+            <small>@Message.Timestamp.ToString("g")</small>
+            @if (!Message.IsUser)
+            {
+                <button class="btn btn-sm btn-outline-light ms-2" title="导出为Markdown" @onclick="() => OnExport.InvokeAsync(Message)">
+                    <i class="bi bi-download"></i>
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="card-body">
+        <div class="card-text">
+            @Message.AssistantResponse
+        </div>
+
+        @* @if (Message.Files.Any()) *@
+        @* { *@
+        @*     <div class="mt-3"> *@
+        @*         <h6>附件：</h6> *@
+        @*         <div class="d-flex flex-wrap gap-2"> *@
+        @*             @foreach (var file in Message.Files) *@
+        @*             { *@
+        @*                 <div class="border rounded p-2"> *@
+        @*                     <i class="bi @GetFileIcon(file.ContentType) me-2"></i> *@
+        @*                     <span>@file.Name</span> *@
+        @*                     <small class="text-muted ms-2">(@FormatFileSize(file.Size))</small> *@
+        @*                 </div> *@
+        @*             } *@
+        @*         </div> *@
+        @*     </div> *@
+        @* } *@
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ChatMessage Message { get; set; }
+
+    [Parameter]
+    public EventCallback<ChatMessage> OnExport { get; set; }
+
+    private string GetFileIcon(string contentType)
+    {
+        return contentType switch
+        {
+            string ct when ct.Contains("image") => "bi-file-image",
+            string ct when ct.Contains("pdf") => "bi-file-earmark-pdf",
+            string ct when ct.Contains("word") => "bi-file-earmark-word",
+            string ct when ct.Contains("excel") => "bi-file-earmark-excel",
+            string ct when ct.Contains("zip") => "bi-file-earmark-zip",
+            _ => "bi-file-earmark"
+        };
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        int order = 0;
+        double size = bytes;
+
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size /= 1024;
+        }
+
+        return $"{size:0.##} {sizes[order]}";
+    }
+}
