@@ -1,10 +1,31 @@
 ﻿
-window.markdownInterop = {
-    renderMarkdown: function (markdownText) {
-        const md = window.markdownit();
-        return md.render(markdownText);
+window.renderMarkdown = function (markdownText) {
+    // 确保 markdown-it 已加载
+    if (!window.markdownit) {
+        console.error("markdownit is not loaded");
+        return markdownText;
     }
-}
+
+    const md = window.markdownit({
+        html: true,
+        linkify: true,
+        typographer: true,
+        highlight: function (str, lang) {
+            // 使用 highlight.js 进行代码高亮
+            if (lang && hljs.getLanguage(lang)) {
+                try {
+                    return '<pre class="hljs"><code>' +
+                        hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                        '</code></pre>';
+                } catch (__) { }
+            }
+
+            return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
+        }
+    });
+
+    return md.render(markdownText);
+};
 
 window.attachEnterKeyHandler = function (elementId) {
     const input = document.getElementById(elementId);
@@ -47,4 +68,12 @@ function scrollToBottom(elementId) {
 // 滚动到顶部
 window.scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+window.setRenderingState = function (element, isRendering) {
+    if (isRendering) {
+        element.classList.add('rendering');
+    } else {
+        element.classList.remove('rendering');
+    }
 };

@@ -19,6 +19,16 @@ public class Program
         {
             return new LiteDatabase("Filename= MyAssistant.db;Connection=shared");
         });
+        var portSection = builder.Configuration.GetSection("Port");
+        var port = 8091;
+        if (portSection.Exists())
+        {
+            port = portSection.Get<int>();
+        }
+        builder.WebHost.ConfigureKestrel(options =>
+        {
+            options.ListenAnyIP(port);
+        });
         builder.Services.AddScoped<JsInterop>();
         builder.Services.AddSingleton<KernelContext>();
         builder.Services.AddSingleton<ChatContext>();

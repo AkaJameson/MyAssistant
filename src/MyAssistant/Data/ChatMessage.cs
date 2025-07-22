@@ -2,6 +2,7 @@
 {
     public class ChatMessage
     {
+        public Guid Id { get; set; } = Guid.NewGuid();
         public int Round { get; set; }
 
         public string UserInput { get; set; } = "";

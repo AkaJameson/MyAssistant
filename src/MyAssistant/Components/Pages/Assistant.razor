@@ -303,6 +303,7 @@
         var currentMessage = newMessage;
         newMessage = ""; // 清空输入框
 
+        // 添加用户消息到UI
         var userMessage = new ChatMessage
             {
                 UserInput = currentMessage,
@@ -312,9 +313,9 @@
         activeSession.Messages.Add(userMessage);
         activeSession.LastUpdatedAt = DateTime.UtcNow;
 
+        // 如果有上传的文件，先处理文件
         if (attachedFiles.Any())
         {
-            // 直接传递 IBrowserFile 数组
             await ChatService.AttachFileContentToSessionAsync(activeSessionId, attachedFiles.ToArray());
             attachedFiles.Clear();
         }
@@ -344,6 +345,7 @@
         }
     }
 
+    // 处理文件上传
     private void HandleFileUpload(InputFileChangeEventArgs e)
     {
         foreach (var file in e.GetMultipleFiles())
