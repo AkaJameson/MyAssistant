@@ -63,7 +63,16 @@ function scrollToBottom(elementId) {
         element.scrollTop = element.scrollHeight;
     }
 }
-
+function preventDefaultEnter(elementId) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+            }
+        });
+    }
+}
 
 // 滚动到顶部
 window.scrollToTop = () => {
