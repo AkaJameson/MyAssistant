@@ -1,48 +1,45 @@
 ﻿using LiteDB;
 using MyAssistant.Core;
-using MyAssistant.Repository;
+using MyAssistant.IServices;
 using System.Text;
 
 namespace MyAssistant.ServiceImpl
 {
-    public class AgentServiceImpl
+    public class AgentServiceImpl : IAgentService
     {
-        private readonly KnowledgeSetRepository _setRepo;
-        private readonly KnowledgeFileRepository _fileRepo;
-        private ChatContext chatContext;
+        private readonly IKnowledgeService _knowledgeService;
+        private readonly ChatContext _chatContext;
+        private readonly ILogger<AgentServiceImpl> _logger;
 
-        public AgentServiceImpl(KnowledgeSetRepository setRepo, KnowledgeFileRepository fileRepo, ChatContext chatContext)
+        public AgentServiceImpl(
+            IKnowledgeService knowledgeService,
+            ChatContext chatContext,
+            ILogger<AgentServiceImpl> logger)
         {
-            _setRepo = setRepo;
-            _fileRepo = fileRepo;
-            this.chatContext = chatContext;
+            _knowledgeService = knowledgeService;
+            _chatContext = chatContext;
+            _logger = logger;
         }
 
-        public void BuildPrompt(string sessionId, ObjectId knowledgeSetId)
+        public async Task BuildPromptAsync(string sessionId, string knowledgeSetId)
         {
-            var set = _setRepo.FindById(knowledgeSetId);
-            if (set == null)
-                throw new Exception("未找到对应的知识集。");
+            if (string.IsNullOrEmpty(knowledgeSetId))
+                throw new ArgumentException("Invalid knowledge set ID");
 
-            var files = _fileRepo.GetBySetId(knowledgeSetId).ToList();
-            if (files.Count == 0)
-                throw new Exception("该知识集中没有文件内容。");
+            var set = await _knowledgeService.GetKnowledgeSetByIdAsync(knowledgeSetId);
+            if (set == null) throw new Exception("Knowledge set not found");
 
-            var sb = new StringBuilder();
+            var files = await _knowledgeService.GetKnowledgeFilesBySetIdAsync(knowledgeSetId);
+            if (files.Count == 0) throw new Exception("No files in knowledge set");
 
-            // 获取模板
-            string template = set.PromptTemplate;
-
-            // 将每个文件的标题占位符替换为对应的内容
+            var sb = new StringBuilder(set.PromptTemplate);
             foreach (var file in files)
             {
-                // 将模板中的 {{title}} 替换为对应文件的内容
-                string placeholder = "{{" + file.Title + "}}";
-                template = template.Replace(placeholder, file.Content);
+                sb.Replace($"{{{{{file.Title}}}}}", file.Content);
             }
-            sb.Append(template);
-            string finalMessage = sb.ToString().Trim();
-            chatContext.AddSystemMessage(sessionId, finalMessage);
+
+            _chatContext.AddSystemMessage(sessionId, sb.ToString());
+            _logger.LogInformation($"Loaded knowledge set {set.Name} into session {sessionId}");
         }
     }
 }

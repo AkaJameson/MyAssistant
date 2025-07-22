@@ -1,14 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
-	<PropertyGroup>
-		<TargetFramework>net8.0</TargetFramework>
-		<Nullable>enable</Nullable>
-		<ImplicitUsings>enable</ImplicitUsings>
-	</PropertyGroup>
-
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
 	<ItemGroup>
+		<PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
 		<PackageReference Include="LiteDB" Version="5.0.21" />
-		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.7" />
 		<PackageReference Include="Microsoft.SemanticKernel" Version="1.60.0" />
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.60.0" />
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.Qdrant" Version="1.60.0-preview" />
@@ -21,11 +20,4 @@
 		<PackageReference Include="Serilog.Sinks.Seq" Version="8.0.0" />
 		<PackageReference Include="Aspose.Words" Version="25.7.0" />
 	</ItemGroup>
-
-	<ItemGroup>
-		<Folder Include="Data\" />
-		<Folder Include="IServices\" />
-		<Folder Include="Repository\" />
-	</ItemGroup>
-
 </Project>

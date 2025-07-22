@@ -1,0 +1,398 @@
+﻿@page "/knowledge-base"
+@using LiteDB
+@using MyAssistant.Data
+@using MyAssistant.IServices
+@inject IKnowledgeService KnowledgeService
+@rendermode InteractiveServer
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-4 border-end p-3 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>知识集</h4>
+                <button class="btn btn-sm btn-primary" @onclick="ShowCreateSetModal">
+                    <i class="bi bi-plus-lg"></i> 新建
+                </button>
+            </div>
+
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" placeholder="搜索知识集..." @bind="setSearchTerm" />
+                <button class="btn btn-outline-secondary" type="button" @onclick="SearchSets">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+
+            <div class="list-group">
+                @if (filteredSets == null)
+                {
+                    <div class="d-flex justify-content-center mt-3">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var set in filteredSets)
+                    {
+                        <a class="list-group-item list-group-item-action @(set.Id.ToString() == activeSetId ? "active" : "")"
+                           @onclick="() => SetActiveSet(set.Id.ToString())">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">@set.Name</h5>
+                            </div>
+                            <p class="mb-1">@(set.PromptTemplate?.Length > 50 ? set.PromptTemplate.Substring(0, 50) + "..." : set.PromptTemplate)</p>
+                        </a>
+                    }
+                }
+            </div>
+        </div>
+
+        <div class="col-md-8 p-3">
+            @if (activeSet != null)
+            {
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3>@activeSet.Name</h3>
+                        <div>
+                            <button class="btn btn-outline-secondary me-2" @onclick="() => ShowEditSetModal(activeSet)">
+                                <i class="bi bi-pencil"></i> 编辑
+                            </button>
+                            <button class="btn btn-outline-danger" @onclick="() => DeleteSet(activeSet.Id.ToString())">
+                                <i class="bi bi-trash"></i> 删除
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>提示模板</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                <pre>@activeSet.PromptTemplate</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5>知识文件</h5>
+                        <button class="btn btn-primary" @onclick="ShowCreateFileModal">
+                            <i class="bi bi-plus-lg me-1"></i> 添加文件
+                        </button>
+                    </div>
+
+                    <div class="list-group">
+                        @if (activeSetFilesLoading)
+                        {
+                            <div class="d-flex justify-content-center mt-3">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">加载中...</span>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var file in activeSetFiles)
+                            {
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">@file.Title</h6>
+                                            <p class="mb-0">@(file.Content?.Length > 100 ? file.Content.Substring(0, 100) + "..." : file.Content)</p>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-outline-secondary me-2"
+                                                    @onclick="() => ShowEditFileModal(file)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    @onclick="() => DeleteFile(file.Id.ToString())">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="text-center mt-5">
+                    <i class="bi bi-journal-bookmark display-1 text-muted"></i>
+                    <h4 class="mt-3">请选择一个知识集</h4>
+                    <p class="text-muted">从左侧列表中选择一个知识集或创建新的知识集</p>
+                    <button class="btn btn-primary mt-2" @onclick="ShowCreateSetModal">
+                        <i class="bi bi-plus-lg me-1"></i> 创建知识集
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- 知识集编辑模态框 -->
+@if (showSetModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(editingSet == null ? "新建知识集" : "编辑知识集")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseSetModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">名称 *</label>
+                        <input type="text" class="form-control" @bind="setName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">提示模板 *</label>
+                        <textarea class="form-control" rows="10" @bind="setTemplate"></textarea>
+                        <small class="text-muted">使用 {{文件名}} 作为占位符，系统会自动替换为对应文件内容</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseSetModal">取消</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveSet">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- 知识文件编辑模态框 -->
+@if (showFileModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(editingFile == null ? "添加知识文件" : "编辑知识文件")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseFileModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">文件标题 *</label>
+                        <input type="text" class="form-control" @bind="fileName" />
+                        <small class="text-muted">标题将作为模板中的占位符名称</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">内容 *</label>
+                        <textarea class="form-control" rows="15" @bind="fileContent"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseFileModal">取消</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveFile">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<KnowledgeSet> knowledgeSets = new();
+    private string? activeSetId;
+    private KnowledgeSet activeSet => knowledgeSets.FirstOrDefault(s => s.Id.ToString() == activeSetId);
+    private List<KnowledgeFile> activeSetFiles = new();
+    private bool activeSetFilesLoading = false;
+    private string setSearchTerm = "";
+    private List<KnowledgeSet> filteredSets = new();
+
+    // 模态框状态
+    private bool showSetModal = false;
+    private bool showFileModal = false;
+    private KnowledgeSet editingSet = null;
+    private KnowledgeFile editingFile = null;
+    private string setName = "";
+    private string setTemplate = "";
+    private string fileName = "";
+    private string fileContent = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadKnowledgeSets();
+    }
+
+    private async Task LoadKnowledgeSets()
+    {
+        knowledgeSets = await KnowledgeService.QueryAllSetsAsync();
+        filteredSets = knowledgeSets;
+    }
+
+    private void SearchSets()
+    {
+        if (string.IsNullOrWhiteSpace(setSearchTerm))
+        {
+            filteredSets = knowledgeSets;
+        }
+        else
+        {
+            filteredSets = knowledgeSets
+                .Where(s => s.Name.Contains(setSearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                            s.PromptTemplate.Contains(setSearchTerm, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    private async Task SetActiveSet(string setId)
+    {
+        activeSetId = setId;
+        await LoadFilesForActiveSet();
+    }
+
+    private async Task LoadFilesForActiveSet()
+    {
+        if (string.IsNullOrEmpty(activeSetId)) return;
+
+        activeSetFilesLoading = true;
+        try
+        {
+            activeSetFiles = await KnowledgeService.GetKnowledgeFilesBySetIdAsync(activeSetId);
+        }
+        finally
+        {
+            activeSetFilesLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowCreateSetModal()
+    {
+        editingSet = null;
+        setName = "";
+        setTemplate = "";
+        showSetModal = true;
+    }
+
+    private void ShowEditSetModal(KnowledgeSet set)
+    {
+        editingSet = set;
+        setName = set.Name;
+        setTemplate = set.PromptTemplate;
+        showSetModal = true;
+    }
+
+    private void CloseSetModal()
+    {
+        showSetModal = false;
+    }
+
+    private async Task SaveSet()
+    {
+        if (string.IsNullOrWhiteSpace(setName) || string.IsNullOrWhiteSpace(setTemplate))
+        {
+            return;
+        }
+
+        if (editingSet == null)
+        {
+            // 新建
+            var id = await KnowledgeService.CreateKnowledgeSetAsync(setName, setTemplate);
+            if (!string.IsNullOrEmpty(id))
+            {
+                var newSet = new KnowledgeSet
+                    {
+                        Id = new ObjectId(id),
+                        Name = setName,
+                        PromptTemplate = setTemplate
+                    };
+                knowledgeSets.Add(newSet);
+                activeSetId = id;
+                await LoadFilesForActiveSet();
+            }
+        }
+        else
+        {
+            // 更新
+            var success = await KnowledgeService.UpdateKnowledgeSetAsync(editingSet.Id.ToString(), setName, setTemplate);
+            if (success)
+            {
+                editingSet.Name = setName;
+                editingSet.PromptTemplate = setTemplate;
+            }
+        }
+        showSetModal = false;
+    }
+
+    private async Task DeleteSet(string setId)
+    {
+        var success = await KnowledgeService.DeleteKnowledgeSetAsync(setId);
+        if (success)
+        {
+            knowledgeSets.RemoveAll(s => s.Id.ToString() == setId);
+            if (activeSetId == setId)
+            {
+                activeSetId = null;
+                activeSetFiles.Clear();
+            }
+            await LoadKnowledgeSets();
+        }
+    }
+
+    private void ShowCreateFileModal()
+    {
+        if (activeSet == null) return;
+
+        editingFile = null;
+        fileName = "";
+        fileContent = "";
+        showFileModal = true;
+    }
+
+    private void ShowEditFileModal(KnowledgeFile file)
+    {
+        editingFile = file;
+        fileName = file.Title;
+        fileContent = file.Content;
+        showFileModal = true;
+    }
+
+    private void CloseFileModal()
+    {
+        showFileModal = false;
+    }
+
+    private async Task SaveFile()
+    {
+        if (activeSet == null || string.IsNullOrWhiteSpace(fileName) || string.IsNullOrWhiteSpace(fileContent))
+            return;
+
+        if (editingFile == null)
+        {
+            // 新建
+            var id = await KnowledgeService.CreateKnowledgeFileAsync(activeSet.Id.ToString(), fileName, fileContent);
+            if (!string.IsNullOrEmpty(id))
+            {
+                var newFile = new KnowledgeFile
+                    {
+                        Id = new ObjectId(id),
+                        KnowledgeSetId = activeSet.Id,
+                        Title = fileName,
+                        Content = fileContent
+                    };
+                activeSetFiles.Add(newFile);
+            }
+        }
+        else
+        {
+            // 更新
+            var success = await KnowledgeService.UpdateKnowledgeFileAsync(editingFile.Id.ToString(), fileName, fileContent);
+            if (success)
+            {
+                editingFile.Title = fileName;
+                editingFile.Content = fileContent;
+            }
+        }
+        showFileModal = false;
+    }
+
+    private async Task DeleteFile(string fileId)
+    {
+        var success = await KnowledgeService.DeleteKnowledgeFileAsync(fileId);
+        if (success)
+        {
+            activeSetFiles.RemoveAll(f => f.Id.ToString() == fileId);
+        }
+    }
+}

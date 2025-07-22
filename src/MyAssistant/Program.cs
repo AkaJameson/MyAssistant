@@ -1,7 +1,7 @@
+using Blazored.LocalStorage;
 using LiteDB;
 using MyAssistant.Components;
 using MyAssistant.Core;
-using MyAssistant.Hubs;
 using MyAssistant.IServices;
 using MyAssistant.Logs;
 using MyAssistant.Repository;
@@ -15,11 +15,11 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
         builder.AddLogService();
-        builder.Services.AddSignalR();
         builder.Services.AddSingleton<LiteDatabase>(_ =>
         {
             return new LiteDatabase("Filename= MyAssistant.db;Connection=shared");
         });
+        builder.Services.AddScoped<JsInterop>();
         builder.Services.AddSingleton<KernelContext>();
         builder.Services.AddSingleton<ChatContext>();
         builder.Services.AddSingleton<QdrantSupport>();
@@ -27,15 +27,18 @@ public class Program
         builder.Services.AddScoped<ChatSessionRepository>();
         builder.Services.AddScoped<KnowledgeFileRepository>();
         builder.Services.AddScoped<KnowledgeSetRepository>();
-        builder.Services.AddScoped<IChatService, ChatServiceImpl>();
-        builder.Services.AddScoped<IKnowledgeService, KnowledgeServiceImpl>();
 
+        builder.Services.AddScoped<IAgentService, AgentServiceImpl>();
+        builder.Services.AddScoped<IKnowledgeService, KnowledgeServiceImpl>();
+        builder.Services.AddScoped<IChatService, ChatServiceImpl>();
+        builder.Services.AddScoped<IModelService, ModelServiceImpl>();
+        builder.Services.AddBlazoredLocalStorage();
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
 
-
         var app = builder.Build();
 
+        // Configure the HTTP request pipeline.
         if (!app.Environment.IsDevelopment())
         {
             app.UseExceptionHandler("/Error");
@@ -46,7 +49,7 @@ public class Program
 
         app.MapRazorComponents<App>()
             .AddInteractiveServerRenderMode();
-        app.MapHub<ChatHub>("/chathub");
+
         app.Run();
     }
 }

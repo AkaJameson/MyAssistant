@@ -10,6 +10,7 @@
 
         public string Event { get; set; } = "";
 
+        public List<UploadedFile> Files { get; set; } = new List<UploadedFile>();
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
 }

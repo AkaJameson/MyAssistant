@@ -1,120 +1,145 @@
 ﻿using Microsoft.AspNetCore.Components.Forms;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
 using MyAssistant.Core;
 using MyAssistant.Data;
-using MyAssistant.Hubs;
 using MyAssistant.IServices;
-using MyAssistant.Models;
 using MyAssistant.Repository;
 using MyAssistant.Utils;
 using System.Text;
-using System.Text.Json;
 
 namespace MyAssistant.ServiceImpl
 {
     public class ChatServiceImpl : IChatService
     {
-        private readonly IHubContext<ChatHub> hubContext;
-        private readonly IConfiguration configuration;
-        private readonly ChatSessionRepository chatSessionRepository;
-        private readonly ChatContext chatContext;
-        private readonly KernelContext kernelManager;
-        private string _currentModelName;
+        private readonly ChatSessionRepository _sessionRepo;
+        private readonly ChatContext _chatContext;
+        private readonly KernelContext _kernelContext;
+        private readonly ILogger<ChatServiceImpl> _logger;
 
         public ChatServiceImpl(
-            IHubContext<ChatHub> hubContext,
-            IConfiguration configuration,
-            ChatSessionRepository chatSessionRepository,
+            ChatSessionRepository sessionRepo,
             ChatContext chatContext,
-            KernelContext kernel)
+            KernelContext kernelContext,
+            ILogger<ChatServiceImpl> logger)
         {
-            this.hubContext = hubContext;
-            this.configuration = configuration;
-            this.chatSessionRepository = chatSessionRepository;
-            this.chatContext = chatContext;
-            this.kernelManager = kernel;
+            _sessionRepo = sessionRepo;
+            _chatContext = chatContext;
+            _kernelContext = kernelContext;
+            _logger = logger;
         }
 
-        public string GetModelConfigs()
+        public async Task<ChatSession> GetOrCreateSessionAsync(string sessionId = null)
         {
-            try
+            sessionId ??= Guid.NewGuid().ToString();
+
+            // 从数据库加载会话（如果存在）
+            var dbSession = _sessionRepo.FindBySessionId(sessionId);
+            if (dbSession != null)
             {
-                var modelConfigs = configuration.GetSection("ModelConfigs").Get<List<ModelConfig>>();
-                if (modelConfigs == null || !modelConfigs.Any())
+                // 将会话历史加载到ChatContext
+                var history = _chatContext.GetOrCreateChatHistory(sessionId);
+                foreach (var msg in dbSession.Messages)
                 {
-                    return "[]";
+                    if (!string.IsNullOrWhiteSpace(msg.UserInput))
+                        history.AddUserMessage(msg.UserInput);
+                    if (!string.IsNullOrWhiteSpace(msg.AssistantResponse))
+                        history.AddAssistantMessage(msg.AssistantResponse);
                 }
-                if (modelConfigs.Any(config => !config.IsValid()))
-                {
-                    throw new InvalidOperationException("检测到无效的模型配置，请检查 Model、Endpoint 和 ApiKey。");
-                }
-                return JsonSerializer.Serialize(modelConfigs, new JsonSerializerOptions { WriteIndented = true });
+                return dbSession;
             }
-            catch (Exception ex)
+
+            // 创建新会话
+            var newSession = new ChatSession
             {
-                throw new InvalidOperationException($"无法解析 ModelConfigs 配置：{ex.Message}");
-            }
+                SessionId = sessionId,
+                CreatedAt = DateTime.UtcNow,
+                LastUpdatedAt = DateTime.UtcNow
+            };
+            _sessionRepo.Insert(newSession);
+
+            // 初始化内存中的历史
+            _chatContext.GetOrCreateChatHistory(sessionId);
+            return newSession;
         }
 
-        /// <summary>
-        /// 更新内核
-        /// </summary>
-        /// <param name="modelName"></param>
-        /// <returns></returns>
-        /// <exception cref="InvalidOperationException"></exception>
-        public Task UpdateKernel(string modelName)
+        public async IAsyncEnumerable<string> SendMessageStreamingAsync(string sessionId, string message)
         {
-            if (_currentModelName == modelName)
+            if (string.IsNullOrEmpty(sessionId))
+                throw new ArgumentException("Session ID cannot be null or empty.");
+
+            var history = _chatContext.GetOrCreateChatHistory(sessionId);
+            history.AddUserMessage(message);
+
+            // 保存用户消息到数据库
+            var dbSession = _sessionRepo.FindBySessionId(sessionId);
+            if (dbSession == null)
             {
-                return Task.CompletedTask;
+                dbSession = new ChatSession { SessionId = sessionId };
+                _sessionRepo.Insert(dbSession);
+            }
+            var chatMessage = new ChatMessage
+            {
+                UserInput = message,
+                Timestamp = DateTime.UtcNow,
+                Round = dbSession.Messages.Count + 1
+            };
+            dbSession.Messages.Add(chatMessage);
+            _sessionRepo.Update(dbSession);
+
+            // 获取聊天服务
+            var chatCompletion = _kernelContext.Current.GetRequiredService<IChatCompletionService>();
+            var settings = new OpenAIPromptExecutionSettings { MaxTokens = 100000 };
+
+            // 流式响应
+            var fullResponse = new StringBuilder();
+            await foreach (var content in chatCompletion.GetStreamingChatMessageContentsAsync(history, settings))
+            {
+                if (content.Content != null)
+                {
+                    fullResponse.Append(content.Content);
+                    yield return content.Content;
+                }
             }
 
-            try
-            {
-                var modelConfigs = configuration.GetSection("ModelConfigs").Get<List<ModelConfig>>();
-                if (modelConfigs == null || !modelConfigs.Any())
-                {
-                    throw new InvalidOperationException("未找到模型配置。");
-                }
+            // 添加助手消息到历史
+            history.AddAssistantMessage(fullResponse.ToString());
 
-                var modelConfig = modelConfigs.FirstOrDefault(x => x.Model == modelName);
-                if (modelConfig == null || !modelConfig.IsValid())
-                {
-                    throw new InvalidOperationException($"无效的模型配置：{modelName}");
-                }
-                kernelManager.BuildKernelByModel(modelName);
-                _currentModelName = modelName;
-                return Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"更新内核失败：{ex.Message}");
-            }
+            // 更新数据库中的助手回复
+            chatMessage.AssistantResponse = fullResponse.ToString();
+            chatMessage.Timestamp = DateTime.UtcNow;
+            _sessionRepo.Update(dbSession);
         }
-        /// <summary>
-        /// 上传文档
-        /// </summary>
-        /// <param name="sessionId"></param>
-        /// <param name="files"></param>
-        /// <returns></returns>
-        public async Task AttachFileContentToSession(string sessionId, IBrowserFile[] files)
+
+        public async Task AttachFileContentToSessionAsync(string sessionId, IBrowserFile[] files)
         {
             if (files == null || files.Length == 0) return;
 
-            var content = await ProcessUploadedFiles(files);
+            var content = await ProcessUploadedFilesAsync(files);
             if (string.IsNullOrWhiteSpace(content)) return;
 
-            var history = chatContext.GetOrCreateChatHistory(sessionId);
+            var history = _chatContext.GetOrCreateChatHistory(sessionId);
             history.AddSystemMessage($"以下是用户上传的参考文档内容：\n\n{content}");
+
+            // 保存到数据库
+            var dbSession = _sessionRepo.FindBySessionId(sessionId);
+            if (dbSession != null)
+            {
+                dbSession.Messages.Add(new ChatMessage
+                {
+                    Event = "FileUpload",
+                    UserInput = $"上传了 {files.Length} 个文件",
+                    Timestamp = DateTime.UtcNow
+                });
+                _sessionRepo.Update(dbSession);
+            }
         }
         /// <summary>
         /// 处理上传的文件
         /// </summary>
         /// <param name="browserFiles"></param>
         /// <returns></returns>
-        public async Task<string> ProcessUploadedFiles(params IBrowserFile[] browserFiles)
+        public async Task<string> ProcessUploadedFilesAsync(params IBrowserFile[] browserFiles)
         {
             if (browserFiles == null || browserFiles.Length == 0) return string.Empty;
 
@@ -132,78 +157,19 @@ namespace MyAssistant.ServiceImpl
             }
             return documentString.ToString();
         }
-        /// <summary>
-        /// 更细腻模型配置
-        /// </summary>
-        /// <param name="newConfigsJson"></param>
-        /// <returns></returns>
-        /// <exception cref="ArgumentException"></exception>
-        /// <exception cref="InvalidOperationException"></exception>
-        public async Task UpdateModelConfigs(string newConfigsJson)
+        public async Task ClearSessionAsync(string sessionId)
         {
-            try
-            {
-                // 解析新的 JSON 配置
-                var newConfigs = JsonSerializer.Deserialize<List<ModelConfig>>(newConfigsJson);
-                if (newConfigs == null || !newConfigs.Any())
-                {
-                    throw new ArgumentException("新的 ModelConfigs 不能为空。");
-                }
-
-                // 验证每个配置项
-                foreach (var config in newConfigs)
-                {
-                    if (!config.IsValid())
-                    {
-                        throw new ArgumentException($"无效的模型配置：{config.Model}，请检查 Model、Endpoint 和 ApiKey。");
-                    }
-                }
-
-                // 更新配置
-                var appSettingsPath = Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json");
-                var appSettings = JsonSerializer.Deserialize<Dictionary<string, object>>(File.ReadAllText(appSettingsPath));
-                if (appSettings == null)
-                {
-                    throw new InvalidOperationException("无法读取 appsettings.json。");
-                }
-
-                appSettings["ModelConfigs"] = newConfigs;
-                await File.WriteAllTextAsync(appSettingsPath, JsonSerializer.Serialize(appSettings, new JsonSerializerOptions { WriteIndented = true }));
-
-                // 通知客户端配置已更新
-                await hubContext.Clients.All.SendAsync(EventType.ConfigUpdated, "ModelConfigs 已更新。");
-            }
-            catch (JsonException ex)
-            {
-                throw new ArgumentException($"JSON 格式无效：{ex.Message}");
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"更新 ModelConfigs 失败：{ex.Message}");
-            }
-        }
-        /// <summary>
-        /// 删除会话
-        /// </summary>
-        /// <param name="sessionId"></param>
-        public void ClearSession(string sessionId)
-        {
-            chatContext.RemoveChatHistory(sessionId);
-            var chatSession = chatSessionRepository.FindBySessionId(sessionId);
+            _chatContext.RemoveChatHistory(sessionId);
+            var chatSession = _sessionRepo.FindBySessionId(sessionId);
             if (chatSession != null)
             {
-                chatSessionRepository.Delete(chatSession.Id);
+                _sessionRepo.Delete(chatSession.Id);
             }
         }
-        /// <summary>
-        /// 获取所有会话摘要信息
-        /// </summary>
-        /// <returns></returns>
-        public List<ChatSession> GetChatSessions()
+
+        public async Task<IEnumerable<ChatSession>> GetChatSessionsAsync()
         {
-            return chatSessionRepository.GetAllSummery().ToList();
+            return _sessionRepo.GetAllSummery().ToList();
         }
-
-
     }
 }

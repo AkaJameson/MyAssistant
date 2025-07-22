@@ -1,0 +1,163 @@
+﻿@page "/model-config"
+@using Blazored.LocalStorage
+@using MyAssistant.IServices
+@using MyAssistant.Models
+@using System.Text.Json
+@inject IModelService ModelService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3>模型配置</h3>
+        </div>
+        <div class="card-body">
+            @if (availableModels == null)
+            {
+                <div class="d-flex justify-content-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="mb-4">
+                    <h4>当前可用模型</h4>
+                    <div class="list-group">
+                        @foreach (var model in availableModels)
+                        {
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-1">@model.Model</h5>
+                                    <small class="text-muted">@model.Endpoint</small>
+                                </div>
+                                <button class="btn @(currentModel == model.Model ? "btn-success" : "btn-outline-primary")"
+                                @onclick="() => SwitchModel(model.Model)">
+                                    @(currentModel == model.Model ? "当前使用" : "切换")
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <h4>模型配置编辑</h4>
+                    <textarea class="form-control" rows="10" @bind="modelConfigsJson"></textarea>
+                    <div class="d-flex justify-content-end mt-2 gap-2">
+                        <button class="btn btn-outline-secondary" @onclick="ResetConfig">重置</button>
+                        <button class="btn btn-primary" @onclick="SaveConfig">保存配置</button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Models.ModelConfig> availableModels = new();
+    private string currentModel = "";
+    private string modelConfigsJson = "";
+    private string statusMessage = "";
+    private string statusType = "";
+    private bool _initialized = false;
+    [Inject]
+    private ILocalStorageService localStorageService { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+
+            try
+            {
+                currentModel = await localStorageService.GetItemAsStringAsync("currentModel");
+                await LoadModelConfigs();
+                StateHasChanged(); // 通知组件重新渲染
+            }
+            catch (Exception ex)
+            {
+                ShowStatus($"初始化失败: {ex.Message}", "danger");
+            }
+        }
+    }
+
+    private async Task LoadModelConfigs()
+    {
+        try
+        {
+            availableModels = ModelService.GetAvailableModels();
+            if (string.IsNullOrEmpty(currentModel))
+            {
+                currentModel = availableModels.FirstOrDefault()?.Model ?? "";
+            }
+            modelConfigsJson = JsonSerializer.Serialize(availableModels,
+                new JsonSerializerOptions { WriteIndented = true });
+            ShowStatus("配置加载成功", "success");
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"加载配置失败: {ex.Message}", "danger");
+        }
+    }
+
+    private async Task SwitchModel(string modelName)
+    {
+        try
+        {
+            await ModelService.SwitchModelAsync(modelName);
+            currentModel = modelName;
+            await localStorageService.SetItemAsStringAsync("currentModel", currentModel);
+            ShowStatus($"已切换到模型: {modelName}", "success");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"切换模型失败: {ex.Message}", "danger");
+        }
+    }
+
+    private async Task SaveConfig()
+    {
+        try
+        {
+            await ModelService.UpdateModelConfigsAsync(modelConfigsJson);
+            await LoadModelConfigs();
+            if (!availableModels.Any(m => m.Model == currentModel))
+            {
+                currentModel = availableModels.FirstOrDefault()?.Model ?? "";
+                localStorageService.SetItemAsStringAsync("currentModel", currentModel);
+            }
+            ShowStatus("配置保存成功", "success");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"保存配置失败: {ex.Message}", "danger");
+        }
+    }
+
+    private void ResetConfig()
+    {
+        modelConfigsJson = JsonSerializer.Serialize(availableModels,
+            new JsonSerializerOptions { WriteIndented = true });
+        ShowStatus("配置已重置", "info");
+    }
+
+    private void ShowStatus(string message, string type)
+    {
+        statusMessage = message;
+        statusType = type;
+        StateHasChanged();
+
+        // 3秒后清除消息
+        Task.Run(async () =>
+        {
+            await Task.Delay(3000);
+            statusMessage = "";
+            statusType = "";
+            StateHasChanged();
+        });
+    }
+}

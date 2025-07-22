@@ -30,28 +30,30 @@ namespace MyAssistant.Repository
 
         public IEnumerable<ChatSession> GetAll() => _collection.FindAll();
 
+
         public IEnumerable<ChatSession> GetAllSummery()
         {
-            return _collection.Query().Select(x => new ChatSession
+            var allSessions = _collection.Query().ToList();
+
+            return allSessions.Select(session => new ChatSession
             {
-                SessionId = x.SessionId,
-                CreatedAt = x.CreatedAt,
-                LastUpdatedAt = x.LastUpdatedAt,
-                Id = x.Id,
-                Messages = new List<ChatMessage>
+                SessionId = session.SessionId,
+                CreatedAt = session.CreatedAt,
+                LastUpdatedAt = session.LastUpdatedAt,
+                Id = session.Id,
+                Messages = session.Messages?.Take(1).Select(msg => new ChatMessage
                 {
-                    x.Messages.Select(y => new ChatMessage
-                    {
-                        Event = y.Event,
-                        AssistantResponse = y.AssistantResponse.Length > 50 ? y.AssistantResponse.Substring(0, 50) + "..." : y.AssistantResponse,
-                        UserInput = y.UserInput.Length > 50 ? y.UserInput.Substring(0, 50) + "..." : y.UserInput,
-                        Round = y.Round,
-                        Timestamp = y.Timestamp
-                    }).FirstOrDefault()?? new ChatMessage()
-                }
+                    Event = msg.Event,
+                    AssistantResponse = msg.AssistantResponse?.Length > 50
+                        ? msg.AssistantResponse.Substring(0, 50) + "..."
+                        : msg.AssistantResponse,
+                    UserInput = msg.UserInput?.Length > 50
+                        ? msg.UserInput.Substring(0, 50) + "..."
+                        : msg.UserInput,
+                    Round = msg.Round,
+                    Timestamp = msg.Timestamp
+                }).ToList() ?? new List<ChatMessage>()
             }).ToList();
         }
-
-
     }
 }
