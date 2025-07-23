@@ -1,13 +1,9 @@
-﻿using Microsoft.SemanticKernel;
+﻿using Microsoft.Extensions.AI;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.Qdrant;
 using MyAssistant.Models;
 using OpenAI;
 using System.ClientModel;
-using Qdrant.Client;
-using static Qdrant.Client.Grpc.Qdrant;
-using Microsoft.Extensions.AI;
-using Microsoft.SemanticKernel.Memory;
-using System;
 namespace MyAssistant.Core
 {
     public class KernelContext
@@ -18,6 +14,23 @@ namespace MyAssistant.Core
         private readonly ILogger<KernelContext> _logger;
         private ModelConfig? _currentModel;
         private QdrantVectorStore qdrantVectorStore;
+        private ProjectKernel _projectKernel;
+
+        public ProjectKernel ProjectKernel
+        {
+            get
+            {
+                if (_projectKernel == null)
+                {
+                    if(_currentModel == null)
+                    {
+                        BuildDefaultKernel();
+                    }
+                    _projectKernel = new ProjectKernel(_currentModel);
+                }
+                return _projectKernel;
+            }
+        }
 
         public Kernel Current
         {
@@ -45,9 +58,6 @@ namespace MyAssistant.Core
                 return qdrantVectorStore;
             }
         }
-
-
-
         /// <summary>
         /// 当前使用的模型配置
         /// </summary>
@@ -111,6 +121,7 @@ namespace MyAssistant.Core
 
             _kernel = kernelBuilder.Build();
             _currentModel = modelConfig;
+            _projectKernel = new ProjectKernel(_currentModel);
 
             _logger.LogInformation($"Kernel 已切换到模型: {modelConfig.Model}");
         }
@@ -233,7 +244,7 @@ namespace MyAssistant.Core
             return records;
         }
 
-        public async Task UpdateAsync<T>(string collectionName, IEnumerable<T> records) where T:class
+        public async Task UpdateAsync<T>(string collectionName, IEnumerable<T> records) where T : class
         {
             var collection = Store.GetCollection<string, T>(collectionName);
             await collection.UpsertAsync(records);
