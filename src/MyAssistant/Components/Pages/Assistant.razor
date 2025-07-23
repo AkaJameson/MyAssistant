@@ -68,17 +68,20 @@
             <div class="d-flex justify-content-between align-items-center border-bottom p-3">
                 <h4>@(activeSession?.SessionId ?? "新会话")</h4>
                 <div>
-                    <a href="/model-config" class="btn btn-sm btn-outline-secondary me-2">
+                    @* 修改为模态框触发按钮 *@
+                    <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => showModelConfig = true">
                         <i class="bi bi-gear"></i> 模型设置
-                    </a>
+                    </button>
                     <button class="btn btn-sm btn-outline-success" @onclick="ExportConversation">
                         <i class="bi bi-download"></i> 导出对话
                     </button>
-                    <a href="/knowledge-base" class="btn btn-sm btn-outline-info ms-2">
+                    @* 修改为模态框触发按钮 *@
+                    <button class="btn btn-sm btn-outline-info ms-2" @onclick="() => showKnowledgeBase = true">
                         <i class="bi bi-book"></i> 知识库
-                    </a>
+                    </button>
                 </div>
             </div>
+
 
             <!-- 知识集选择区域 -->
             <div class="p-3 bg-light mb-3">
@@ -213,7 +216,33 @@
                 }
             </div>
         </div>
+
+
     </div>
+    <div class="modal-overlay" style="@(showKnowledgeBase || showModelConfig ? "display:block;" : "display:none;")">
+        @if (showKnowledgeBase)
+        {
+            <div class="modal-content-wrapper">
+                <div class="modal-header d-flex justify-content-between align-items-center bg-light p-3">
+                    <h3 class="mb-0">知识库管理</h3>
+                    <button class="btn btn-close" @onclick="() => showKnowledgeBase = false"></button>
+                </div>
+                <KnowledgeBase OnClose="() => showKnowledgeBase = false" />
+            </div>
+        }
+
+        @if (showModelConfig)
+        {
+            <div class="modal-content-wrapper">
+                <div class="modal-header d-flex justify-content-between align-items-center bg-primary text-white p-3">
+                    <h3 class="mb-0">模型配置</h3>
+                    <button class="btn btn-close btn-close-white" @onclick="() => showModelConfig = false"></button>
+                </div>
+                <ModelConfig OnClose="() => showModelConfig = false" />
+            </div>
+        }
+    </div>
+
 </div>
 
 @code {
@@ -229,7 +258,8 @@
     private ElementReference chatInputRef;
     private List<KnowledgeSet> knowledgeSets = new();
     private string selectedKnowledgeSetId = "";
-
+    private bool showKnowledgeBase = false;
+    private bool showModelConfig = false;
     protected override async Task OnInitializedAsync()
     {
         await LoadSessions();
@@ -454,3 +484,40 @@
         }
     }
 }
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content-wrapper {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        width: 90%;
+        max-width: 1200px;
+        height: 90vh;
+        max-height: 90vh;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        margin: auto;
+    }
+
+    .modal-header {
+        border-bottom: 1px solid #dee2e6;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+</style>

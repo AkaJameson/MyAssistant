@@ -1,5 +1,4 @@
-﻿@page "/model-config"
-@using Blazored.LocalStorage
+﻿@using Blazored.LocalStorage
 @using MyAssistant.IServices
 @using MyAssistant.Models
 @using System.Text.Json
@@ -8,10 +7,7 @@
 @rendermode InteractiveServer
 
 <div class="container mt-4">
-    <div class="card">
-        <div class="card-header bg-primary text-white">
-            <h3>模型配置</h3>
-        </div>
+    <div class="card flex-grow-1 overflow-auto">  
         <div class="card-body">
             @if (availableModels == null)
             {
@@ -64,7 +60,11 @@
     private bool _initialized = false;
     [Inject]
     private ILocalStorageService localStorageService { get; set; }
-
+    [Parameter] public EventCallback OnClose { get; set; }
+    private async Task CloseModal()
+    {
+        await OnClose.InvokeAsync();
+    }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && !_initialized)
