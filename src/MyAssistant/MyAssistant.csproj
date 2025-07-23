@@ -8,6 +8,7 @@
 	<ItemGroup>
 		<PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
 		<PackageReference Include="LiteDB" Version="5.0.21" />
+		<PackageReference Include="Markdig" Version="0.41.3" />
 		<PackageReference Include="Microsoft.SemanticKernel" Version="1.60.0" />
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.60.0" />
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.Qdrant" Version="1.60.0-preview" />

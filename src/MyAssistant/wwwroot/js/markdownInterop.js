@@ -40,22 +40,22 @@ window.attachEnterKeyHandler = function (elementId) {
 
 
 // 导出Markdown文件
-function exportToMarkdown(content) {
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ai-assistant-${new Date().toISOString().slice(0, 10)}.md`;
-    document.body.appendChild(a);
-    a.click();
-
-    setTimeout(() => {
+// 导出为 Markdown 文件
+window.exportToMarkdown = (content) => {
+    try {
+        const blob = new Blob([content], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `conversation-${new Date().toISOString().split('T')[0]}.md`;
+        document.body.appendChild(a);
+        a.click();
         document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-    }, 0);
-}
-
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        console.log('exportToMarkdown error:', error);
+    }
+};
 // 滚动到消息底部
 function scrollToBottom(elementId) {
     const element = document.getElementById(elementId);
@@ -84,5 +84,84 @@ window.setRenderingState = function (element, isRendering) {
         element.classList.add('rendering');
     } else {
         element.classList.remove('rendering');
+    }
+};
+
+// 复制到剪贴板
+window.copyToClipboard = async (text) => {
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            showToast('内容已复制到剪贴板', 'success');
+        } else {
+            // 回退方案
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            showToast('内容已复制到剪贴板', 'success');
+        }
+    } catch (err) {
+        console.error('Failed to copy text: ', err);
+        showToast('复制失败', 'error');
+    }
+};
+
+// 初始化代码高亮（可选）
+window.initializeCodeHighlight = () => {
+    try {
+        if (typeof Prism !== 'undefined') {
+            Prism.highlightAll();
+        }
+    } catch (error) {
+        console.log('Code highlighting not available');
+    }
+};
+
+// 显示提示消息
+window.showToast = (message, type = 'info') => {
+    try {
+        // 移除现有的 toast
+        const existingToast = document.querySelector('.custom-toast');
+        if (existingToast) {
+            existingToast.remove();
+        }
+
+        // 创建新的 toast
+        const toast = document.createElement('div');
+        toast.className = `custom-toast alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'}`;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 250px;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        `;
+        toast.textContent = message;
+
+        document.body.appendChild(toast);
+
+        // 显示动画
+        setTimeout(() => {
+            toast.style.opacity = '1';
+        }, 10);
+
+        // 3秒后自动消失
+        setTimeout(() => {
+            if (document.body.contains(toast)) {
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    if (document.body.contains(toast)) {
+                        document.body.removeChild(toast);
+                    }
+                }, 300);
+            }
+        }, 3000);
+    } catch (error) {
+        console.log('showToast error:', error);
     }
 };

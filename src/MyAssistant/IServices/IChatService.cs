@@ -15,5 +15,6 @@ namespace MyAssistant.IServices
         Task<IEnumerable<ChatSession>> GetChatSessionsAsync();
         IAsyncEnumerable<string> SendMessageStreamingAsync(string sessionId, string message);
         Task<string> ProcessUploadedFilesAsync(params IBrowserFile[] browserFiles);
+        Task<ChatSession?> GetFullSessionAsync(string sessionId);
     }
 }

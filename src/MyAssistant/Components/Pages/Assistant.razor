@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using MyAssistant.Components.Shared
 @using MyAssistant.Data
 @using MyAssistant.IServices
 @using System.Text
@@ -152,10 +153,15 @@
                                                     @onclick="() => ExportMessage(message.AssistantResponse)">
                                                 <i class="bi bi-download"></i>
                                             </button>
+                                            <button class="btn btn-sm btn-outline-light ms-1"
+                                                    @onclick="() => CopyToClipboard(message.AssistantResponse)">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
                                         </div>
                                     </div>
-                                    <div class="card-body">
-                                        <p class="card-text">@message.AssistantResponse</p>
+                                    <div class="card-body p-0">
+                                        <!-- 使用 Markdown 渲染组件 -->
+                                        <MarkdownRenderer MarkdownContent="@message.AssistantResponse" />
                                     </div>
                                 </div>
                             </div>
@@ -230,6 +236,10 @@
         await LoadKnowledgeSets();
     }
 
+    private async Task CopyToClipboard(string content)
+    {
+        await JSRuntime.InvokeVoidAsync("copyToClipboard", content);
+    }
     private async Task LoadSessions()
     {
         sessionsLoading = true;
@@ -239,6 +249,7 @@
             if (sessions.Any())
             {
                 activeSessionId = sessions.First().SessionId;
+                await SetActiveSession(activeSessionId);
             }
         }
         finally
@@ -290,6 +301,12 @@
         {
             var session = await ChatService.GetOrCreateSessionAsync(sessionId);
             sessions.Add(session);
+        }
+        var fullSession = await ChatService.GetFullSessionAsync(sessionId);
+        if (fullSession != null)
+        {
+            sessions.RemoveAll(s => s.SessionId == sessionId);
+            sessions.Add(fullSession);
         }
         StateHasChanged();
     }

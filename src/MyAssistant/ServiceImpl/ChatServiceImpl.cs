@@ -171,5 +171,9 @@ namespace MyAssistant.ServiceImpl
         {
             return _sessionRepo.GetAllSummery().ToList();
         }
+        public async Task<ChatSession?> GetFullSessionAsync(string sessionId)
+        {
+            return _sessionRepo.FindBySessionId(sessionId);
+        }
     }
 }
