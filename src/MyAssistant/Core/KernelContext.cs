@@ -2,6 +2,7 @@
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.Qdrant;
 using MyAssistant.Models;
+using MyAssistant.Utils;
 using OpenAI;
 using System.ClientModel;
 namespace MyAssistant.Core
@@ -103,7 +104,7 @@ namespace MyAssistant.Core
 
             _kernel = kernelBuilder.Build();
             _currentModel = modelConfig;
-
+            _kernel.Plugins.AddFromObject(new ProjectBuilder());
             _logger.LogInformation($"Kernel 已切换到模型: {modelConfig.Model}");
         }
 

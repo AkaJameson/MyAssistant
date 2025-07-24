@@ -45,6 +45,7 @@ public class Program
         builder.Services.AddScoped<IKnowledgeService, KnowledgeServiceImpl>();
         builder.Services.AddScoped<IChatService, ChatServiceImpl>();
         builder.Services.AddScoped<IModelService, ModelServiceImpl>();
+        builder.Services.AddScoped<FunctionBasedProjectService>();
         builder.Services.AddBlazoredLocalStorage();
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();

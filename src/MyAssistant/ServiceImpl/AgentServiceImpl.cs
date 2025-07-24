@@ -13,18 +13,17 @@ namespace MyAssistant.ServiceImpl
         private readonly IKnowledgeService _knowledgeService;
         private readonly ChatContext _chatContext;
         private readonly ILogger<AgentServiceImpl> _logger;
-        private readonly KernelContext _kernelContext;
-
+        private FunctionBasedProjectService _projectService;
         public AgentServiceImpl(
             IKnowledgeService knowledgeService,
             ChatContext chatContext,
             ILogger<AgentServiceImpl> logger,
-            KernelContext kernelContext)
+            FunctionBasedProjectService projectService)
         {
             _knowledgeService = knowledgeService;
             _chatContext = chatContext;
             _logger = logger;
-            _kernelContext = kernelContext;
+            _projectService = projectService;
         }
 
         public async Task BuildPromptAsync(string sessionId, string knowledgeSetId)
@@ -58,42 +57,9 @@ namespace MyAssistant.ServiceImpl
                     .TakeLast(Math.Min(history.Count, 10)) 
                     .Select(m => $"{m.Role}: {m.Content}"));
 
-                string projectPrompt = UniversalProjectGenerator.GeneratePrompt(userHistory);
-
-                var tempHistory = new ChatHistory();
-                tempHistory.AddSystemMessage(projectPrompt);
-                tempHistory.AddUserMessage(userHistory);
-
-                var chatCompletion = _kernelContext.Current.GetRequiredService<IChatCompletionService>();
-
-                var settings = new OpenAIPromptExecutionSettings
-                {
-                    Temperature = 0.1f,
-                    TopP = 0.9f,
-                    MaxTokens = 4000, 
-                    StopSequences = new List<string> { "## /END" }
-                };
-
-                var result = await chatCompletion.GetChatMessageContentsAsync(
-                    tempHistory,
-                    settings,
-                    cancellationToken: default
-                );
-
-                var markdown = string.Join("\n", result.Select(m => m.Content));
-
-                var (zipBase64, success, errors) = ProjectParser.ParseAndCreateProject(markdown);
-
-                if (success)
-                {
-                    _logger.LogInformation("项目生成成功并打包返回");
-                    return (zipBase64, true, new List<string>());
-                }
-                else
-                {
-                    _logger.LogWarning("项目解析失败: {Errors}", string.Join(", ", errors));
-                    return (string.Empty, false, errors);
-                }
+                var result = await _projectService.CreateProjectAsync(userHistory);
+                return result;
+             
             }
             catch (Exception ex)
             {
