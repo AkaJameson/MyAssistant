@@ -44,7 +44,7 @@
                         @foreach (var session in filteredSessions)
                         {
                             <li class="list-group-item list-group-item-action @(session.SessionId == activeSessionId ? "active" : "")"
-                            @onclick="() => SetActiveSession(session.SessionId)">
+                                @onclick="() => SetActiveSession(session.SessionId)">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">@session.SessionId</h6>
                                     <small>@session.LastUpdatedAt.ToLocalTime().ToString("g")</small>
@@ -68,7 +68,7 @@
             <div class="d-flex justify-content-between align-items-center border-bottom p-3">
                 <h4>@(activeSession?.SessionId ?? "新会话")</h4>
                 <div>
-                    <button class="btn btn-sm btn-outline-primary me-2" @onclick="OpenProjectModal">
+                    <button class="btn btn-sm btn-outline-primary me-2" @onclick="CreateProject">
                         <i class="bi bi-folder-plus"></i> 创建项目
                     </button>
 
@@ -102,7 +102,7 @@
                     </div>
                     <div class="col-md-4">
                         <button class="btn btn-primary w-100" @onclick="LoadKnowledgeSet"
-                        disabled="@(string.IsNullOrEmpty(selectedKnowledgeSetId))">
+                                disabled="@(string.IsNullOrEmpty(selectedKnowledgeSetId))">
                             加载知识集
                         </button>
                     </div>
@@ -155,11 +155,11 @@
                                         <div>
                                             <small>@message.Timestamp.ToLocalTime().ToString("g")</small>
                                             <button class="btn btn-sm btn-outline-light ms-2"
-                                            @onclick="() => ExportMessage(message.AssistantResponse)">
+                                                    @onclick="() => ExportMessage(message.AssistantResponse)">
                                                 <i class="bi bi-download"></i>
                                             </button>
                                             <button class="btn btn-sm btn-outline-light ms-1"
-                                            @onclick="() => CopyToClipboard(message.AssistantResponse)">
+                                                    @onclick="() => CopyToClipboard(message.AssistantResponse)">
                                                 <i class="bi bi-clipboard"></i>
                                             </button>
                                         </div>
@@ -180,7 +180,7 @@
                 <div class="d-flex">
                     <div class="flex-grow-1 me-2 position-relative">
                         <textarea @ref="chatInputRef" class="form-control" rows="3" placeholder="输入您的问题..."
-                        @bind="newMessage" @onkeydown="HandleKeyDown" disabled="@isSending"></textarea>
+                                  @bind="newMessage" @onkeydown="HandleKeyDown" disabled="@isSending"></textarea>
                         <div class="position-absolute top-0 end-0 mt-2 me-2">
                             <label class="btn btn-sm btn-outline-secondary mb-0" title="上传文件">
                                 <i class="bi bi-paperclip"></i>
@@ -221,7 +221,7 @@
 
 
     </div>
-    <div class="modal-overlay" style="@(showKnowledgeBase || showModelConfig ||showProjectModal ? "display:block;" : "display:none;")">
+    <div class="modal-overlay" style="@(showKnowledgeBase || showModelConfig ? "display:block;" : "display:none;")">
         @if (showKnowledgeBase)
         {
             <div class="modal-content-wrapper">
@@ -243,58 +243,6 @@
                 <ModelConfig OnClose="() => showModelConfig = false" />
             </div>
         }
- 
-        @if (showProjectModal)
-        {
-            <div class="modal-overlay" style="display:block;">
-                <div class="modal-content-wrapper">
-                    <div class="modal-header bg-info text-white p-3">
-                        <h3 class="mb-0">创建新项目</h3>
-                        <button class="btn btn-close btn-close-white" @onclick="CloseProjectModal"></button>
-                    </div>
-                    <div class="modal-body p-3">
-                        <div class="mb-3">
-                            <label class="form-label">项目名称 *</label>
-                            <input type="text" class="form-control" @bind="projectName"
-                            disabled="@isCreatingProject" />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">项目描述 *</label>
-                            <textarea class="form-control" rows="4" @bind="projectDescription"
-                            disabled="@isCreatingProject"></textarea>
-                            <small class="text-muted">详细描述项目功能和需求</small>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">技术栈</label>
-                            <select class="form-select" @bind="techStack" disabled="@isCreatingProject">
-                                <option value="">-- 选择技术栈 --</option>
-                                <option value="C#/.NET">C#/.NET</option>
-                                <option value="JavaScript/Node.js">JavaScript/Node.js</option>
-                                <option value="Python">Python</option>
-                                <option value="Java">Java</option>
-                                <option value="Go">Go</option>
-                                <option value="其他">其他</option>
-                            </select>
-                        </div>
-
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" @onclick="CloseProjectModal"
-                        disabled="@isCreatingProject">
-                            取消
-                        </button>
-                        <button class="btn btn-primary" @onclick="CreateProject" disabled="@isCreatingProject">
-                            @if (isCreatingProject)
-                            {
-                                <span class="spinner-border spinner-border-sm me-1"></span>
-                            }
-                            创建项目
-                        </button>
-                    </div>
-                </div>
-            </div>
-        }
-
     </div>
 
 </div>
@@ -314,76 +262,10 @@
     private string selectedKnowledgeSetId = "";
     private bool showKnowledgeBase = false;
     private bool showModelConfig = false;
-    private bool showProjectModal = false;
     private string projectName = "";
     private string projectDescription = "";
     private string techStack = "C#/.NET";
     private bool isCreatingProject = false;
-    private void OpenProjectModal()
-    {
-        showProjectModal = true;
-        projectName = "";
-        projectDescription = "";
-        techStack = "C#/.NET";
-        StateHasChanged();
-    }
-    private void CloseProjectModal()
-    {
-        showProjectModal = false;
-    }
-
-    private async Task CreateProject()
-    {
-        // 验证输入
-        if (string.IsNullOrWhiteSpace(projectName))
-        {
-            await JSRuntime.InvokeVoidAsync("showToast", "项目名称不能为空");
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(projectDescription))
-        {
-            await JSRuntime.InvokeVoidAsync("showToast", "项目描述不能为空");
-            return;
-        }
-
-        isCreatingProject = true;
-        StateHasChanged();
-        try
-        {
-            // 调用Agent服务创建项目
-            var zipBase64 = await AgentService.GenerateProject(
-                activeSessionId,
-                projectDescription,
-                projectName,
-                techStack);
-
-            // 创建下载链接
-            var fileName = $"{projectName.Trim()}.zip";
-            await JSRuntime.InvokeVoidAsync("downloadBase64File", fileName, zipBase64);
-
-            // 添加到聊天记录
-            activeSession.Messages.Add(new ChatMessage
-                {
-                    Event = "ProjectCreated",
-                    AssistantResponse = $"项目 **{projectName}** 已成功创建并下载。",
-                    Timestamp = DateTime.UtcNow
-                });
-
-            // 关闭模态框
-            CloseProjectModal();
-        }
-        catch (Exception ex)
-        {
-            await JSRuntime.InvokeVoidAsync("showToast", ex.Message);
-        }
-        finally
-        {
-            isCreatingProject = false;
-            StateHasChanged();
-            await ScrollToBottom(); // 滚动到最新消息
-        }
-    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -606,6 +488,33 @@
             sessions.Remove(activeSession);
             activeSessionId = sessions.FirstOrDefault()?.SessionId;
             StateHasChanged();
+        }
+    }
+
+    //创建项目
+    private async Task CreateProject()
+    {
+        if (string.IsNullOrEmpty(activeSessionId)) return;
+
+        isSending = true;
+        try
+        {
+            var result = await AgentService.CreateProjectFileAsync(activeSessionId);
+            if (!string.IsNullOrEmpty(result.ZipBase64))
+            {
+                var fileName = $"project_{DateTime.Now:yyyyMMdd_HHmmss}.zip";
+                await JSRuntime.InvokeVoidAsync("downloadBase64File", $"{fileName}", result.ZipBase64);
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", $"❌ 项目生成失败: {ex.Message}");
+        }
+        finally
+        {
+            isSending = false;
+            StateHasChanged();
+            await ScrollToBottom();
         }
     }
 }

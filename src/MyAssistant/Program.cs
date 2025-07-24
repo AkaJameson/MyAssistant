@@ -1,6 +1,5 @@
 using Blazored.LocalStorage;
 using LiteDB;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using MyAssistant.Components;
 using MyAssistant.Core;
 using MyAssistant.IServices;
@@ -34,10 +33,10 @@ public class Program
             e.MaximumReceiveMessageSize = 102400000;
         });
 
-        builder.Services.AddScoped<JsInterop>();
         builder.Services.AddSingleton<KernelContext>();
         builder.Services.AddSingleton<ChatContext>();
         builder.Services.AddSingleton<QdrantSupport>();
+        builder.Services.AddSingleton<IModelStateService, ModelStateServiceImpl>();
 
         builder.Services.AddScoped<ChatSessionRepository>();
         builder.Services.AddScoped<KnowledgeFileRepository>();

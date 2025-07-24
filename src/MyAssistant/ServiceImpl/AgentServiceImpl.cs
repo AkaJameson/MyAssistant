@@ -1,8 +1,10 @@
-﻿using LiteDB;
+﻿using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel;
 using MyAssistant.Core;
 using MyAssistant.IServices;
 using System.Text;
+using MyAssistant.Utils;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
 
 namespace MyAssistant.ServiceImpl
 {
@@ -46,23 +48,57 @@ namespace MyAssistant.ServiceImpl
             _logger.LogInformation($"Loaded knowledge set {set.Name} into session {sessionId}");
         }
 
-        public async Task<string> GenerateProject(
-           string sessionId,
-           string description,
-           string projectName,
-           string techStack = "")
+        public async Task<(string ZipBase64, bool Success, List<string> Errors)> CreateProjectFileAsync(string sessionId)
         {
             try
             {
-                // 使用专用项目内核生成项目
-                var zipBase64 = await _kernelContext.ProjectKernel.GenerateProjectStructure(
-                    projectName, description, techStack);
-                return zipBase64;
+                var history = _chatContext.GetOrCreateChatHistory(sessionId);
+                var userHistory = string.Join("\n", history
+                    .Where(m => m.Role != AuthorRole.System)
+                    .TakeLast(Math.Min(history.Count, 10)) 
+                    .Select(m => $"{m.Role}: {m.Content}"));
+
+                string projectPrompt = UniversalProjectGenerator.GeneratePrompt(userHistory);
+
+                var tempHistory = new ChatHistory();
+                tempHistory.AddSystemMessage(projectPrompt);
+                tempHistory.AddUserMessage(userHistory);
+
+                var chatCompletion = _kernelContext.Current.GetRequiredService<IChatCompletionService>();
+
+                var settings = new OpenAIPromptExecutionSettings
+                {
+                    Temperature = 0.1f,
+                    TopP = 0.9f,
+                    MaxTokens = 4000, 
+                    StopSequences = new List<string> { "## /END" }
+                };
+
+                var result = await chatCompletion.GetChatMessageContentsAsync(
+                    tempHistory,
+                    settings,
+                    cancellationToken: default
+                );
+
+                var markdown = string.Join("\n", result.Select(m => m.Content));
+
+                var (zipBase64, success, errors) = ProjectParser.ParseAndCreateProject(markdown);
+
+                if (success)
+                {
+                    _logger.LogInformation("项目生成成功并打包返回");
+                    return (zipBase64, true, new List<string>());
+                }
+                else
+                {
+                    _logger.LogWarning("项目解析失败: {Errors}", string.Join(", ", errors));
+                    return (string.Empty, false, errors);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "项目生成失败");
-                return null;
+                _logger.LogError(ex, "创建项目文件时出错");
+                return (string.Empty, false, new List<string> { $"服务错误: {ex.Message}" });
             }
         }
     }

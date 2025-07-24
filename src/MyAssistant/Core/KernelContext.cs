@@ -14,24 +14,6 @@ namespace MyAssistant.Core
         private readonly ILogger<KernelContext> _logger;
         private ModelConfig? _currentModel;
         private QdrantVectorStore qdrantVectorStore;
-        private ProjectKernel _projectKernel;
-
-        public ProjectKernel ProjectKernel
-        {
-            get
-            {
-                if (_projectKernel == null)
-                {
-                    if(_currentModel == null)
-                    {
-                        BuildDefaultKernel();
-                    }
-                    _projectKernel = new ProjectKernel(_currentModel);
-                }
-                return _projectKernel;
-            }
-        }
-
         public Kernel Current
         {
             get
@@ -121,7 +103,6 @@ namespace MyAssistant.Core
 
             _kernel = kernelBuilder.Build();
             _currentModel = modelConfig;
-            _projectKernel = new ProjectKernel(_currentModel);
 
             _logger.LogInformation($"Kernel 已切换到模型: {modelConfig.Model}");
         }

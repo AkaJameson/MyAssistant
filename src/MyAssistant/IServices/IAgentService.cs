@@ -5,10 +5,6 @@ namespace MyAssistant.IServices
     public interface IAgentService
     {
         Task BuildPromptAsync(string sessionId, string knowledgeSetId);
-        Task<string> GenerateProject(
-       string sessionId,
-       string description,
-       string projectName,
-       string techStack = "");
+        Task<(string ZipBase64, bool Success, List<string> Errors)> CreateProjectFileAsync(string sessionId);
     }
 }

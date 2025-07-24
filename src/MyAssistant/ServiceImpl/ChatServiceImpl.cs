@@ -87,11 +87,9 @@ namespace MyAssistant.ServiceImpl
             dbSession.Messages.Add(chatMessage);
             _sessionRepo.Update(dbSession);
 
-            // 获取聊天服务
             var chatCompletion = _kernelContext.Current.GetRequiredService<IChatCompletionService>();
             var settings = new OpenAIPromptExecutionSettings { MaxTokens = 100000 };
 
-            // 流式响应
             var fullResponse = new StringBuilder();
             await foreach (var content in chatCompletion.GetStreamingChatMessageContentsAsync(history, settings))
             {
@@ -102,10 +100,8 @@ namespace MyAssistant.ServiceImpl
                 }
             }
 
-            // 添加助手消息到历史
             history.AddAssistantMessage(fullResponse.ToString());
 
-            // 更新数据库中的助手回复
             chatMessage.AssistantResponse = fullResponse.ToString();
             chatMessage.Timestamp = DateTime.UtcNow;
             _sessionRepo.Update(dbSession);
@@ -173,7 +169,12 @@ namespace MyAssistant.ServiceImpl
         }
         public async Task<ChatSession?> GetFullSessionAsync(string sessionId)
         {
-            return _sessionRepo.FindBySessionId(sessionId);
+            var dbSession = _sessionRepo.FindBySessionId(sessionId);
+            if (dbSession != null)
+            {
+                _chatContext.GetOrCreateChatHistory(sessionId, dbSession);
+            }
+            return dbSession;
         }
     }
 }
