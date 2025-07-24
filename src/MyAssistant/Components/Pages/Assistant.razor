@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using Blazored.LocalStorage
 @using MyAssistant.Components.Shared
 @using MyAssistant.Data
 @using MyAssistant.IServices
@@ -44,7 +45,7 @@
                         @foreach (var session in filteredSessions)
                         {
                             <li class="list-group-item list-group-item-action @(session.SessionId == activeSessionId ? "active" : "")"
-                                @onclick="() => SetActiveSession(session.SessionId)">
+                            @onclick="() => SetActiveSession(session.SessionId)">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">@session.SessionId</h6>
                                     <small>@session.LastUpdatedAt.ToLocalTime().ToString("g")</small>
@@ -102,7 +103,7 @@
                     </div>
                     <div class="col-md-4">
                         <button class="btn btn-primary w-100" @onclick="LoadKnowledgeSet"
-                                disabled="@(string.IsNullOrEmpty(selectedKnowledgeSetId))">
+                        disabled="@(string.IsNullOrEmpty(selectedKnowledgeSetId))">
                             加载知识集
                         </button>
                     </div>
@@ -155,11 +156,11 @@
                                         <div>
                                             <small>@message.Timestamp.ToLocalTime().ToString("g")</small>
                                             <button class="btn btn-sm btn-outline-light ms-2"
-                                                    @onclick="() => ExportMessage(message.AssistantResponse)">
+                                            @onclick="() => ExportMessage(message.AssistantResponse)">
                                                 <i class="bi bi-download"></i>
                                             </button>
                                             <button class="btn btn-sm btn-outline-light ms-1"
-                                                    @onclick="() => CopyToClipboard(message.AssistantResponse)">
+                                            @onclick="() => CopyToClipboard(message.AssistantResponse)">
                                                 <i class="bi bi-clipboard"></i>
                                             </button>
                                         </div>
@@ -180,7 +181,7 @@
                 <div class="d-flex">
                     <div class="flex-grow-1 me-2 position-relative">
                         <textarea @ref="chatInputRef" class="form-control" rows="3" placeholder="输入您的问题..."
-                                  @bind="newMessage" @onkeydown="HandleKeyDown" disabled="@isSending"></textarea>
+                        @bind="newMessage" @onkeydown="HandleKeyDown" disabled="@isSending"></textarea>
                         <div class="position-absolute top-0 end-0 mt-2 me-2">
                             <label class="btn btn-sm btn-outline-secondary mb-0" title="上传文件">
                                 <i class="bi bi-paperclip"></i>
@@ -266,6 +267,11 @@
     private string projectDescription = "";
     private string techStack = "C#/.NET";
     private bool isCreatingProject = false;
+    private bool _initialized = false;
+    [Inject]
+    private ILocalStorageService localStorageService { get; set; }
+    [Inject]
+    private IModelService ModelService { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -273,6 +279,28 @@
         await LoadKnowledgeSets();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+
+            try
+            {
+                var currentModel = await localStorageService.GetItemAsStringAsync("currentModel");
+                ModelService.SwitchModelAsync(currentModel);
+                StateHasChanged(); // 通知组件重新渲染
+            }
+            catch (Exception ex)
+            {
+                ShowStatus($"初始化失败: {ex.Message}", "danger");
+            }
+        }
+    }
+    private void ShowStatus(string message, string type)
+    {
+        JSRuntime.InvokeVoidAsync("showToast", message, type);
+    }
     private async Task CopyToClipboard(string content)
     {
         await JSRuntime.InvokeVoidAsync("copyToClipboard", content);

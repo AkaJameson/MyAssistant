@@ -36,7 +36,6 @@ public class Program
         builder.Services.AddSingleton<KernelContext>();
         builder.Services.AddSingleton<ChatContext>();
         builder.Services.AddSingleton<QdrantSupport>();
-        builder.Services.AddSingleton<IModelStateService, ModelStateServiceImpl>();
 
         builder.Services.AddScoped<ChatSessionRepository>();
         builder.Services.AddScoped<KnowledgeFileRepository>();

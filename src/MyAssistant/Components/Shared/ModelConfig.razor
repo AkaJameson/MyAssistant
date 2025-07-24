@@ -55,8 +55,6 @@
     private List<Models.ModelConfig> availableModels = new();
     private string currentModel = "";
     private string modelConfigsJson = "";
-    private string statusMessage = "";
-    private string statusType = "";
     private bool _initialized = false;
     [Inject]
     private ILocalStorageService localStorageService { get; set; }
@@ -128,7 +126,7 @@
             if (!availableModels.Any(m => m.Model == currentModel))
             {
                 currentModel = availableModels.FirstOrDefault()?.Model ?? "";
-                localStorageService.SetItemAsStringAsync("currentModel", currentModel);
+                await localStorageService.SetItemAsStringAsync("currentModel", currentModel);
             }
             ShowStatus("配置保存成功", "success");
         }
@@ -147,17 +145,6 @@
 
     private void ShowStatus(string message, string type)
     {
-        statusMessage = message;
-        statusType = type;
-        StateHasChanged();
-
-        // 3秒后清除消息
-        Task.Run(async () =>
-        {
-            await Task.Delay(3000);
-            statusMessage = "";
-            statusType = "";
-            StateHasChanged();
-        });
+        JSRuntime.InvokeVoidAsync("showToast", message, type);
     }
 }
