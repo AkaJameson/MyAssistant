@@ -34,9 +34,7 @@ namespace MyAssistant.ServiceImpl
             string userHistory,
             CancellationToken cancellationToken = default)
         {
-            var projectBuilder = new ProjectBuilder();
             var errors = new List<string>();
-
             try
             {
                 // 分析项目上下文
@@ -66,7 +64,7 @@ namespace MyAssistant.ServiceImpl
                     cancellationToken);
 
                 // 检查是否有文件创建
-                var files = projectBuilder.GetFiles();
+                var files = kernelContext.ProjectBuilder.GetFiles();
                 if (files.Count == 0)
                 {
                     // 如果没有文件，尝试引导AI创建
@@ -79,7 +77,7 @@ namespace MyAssistant.ServiceImpl
                         kernelContext.Current,
                         cancellationToken);
 
-                    files = projectBuilder.GetFiles();
+                    files = kernelContext.ProjectBuilder.GetFiles();
                 }
 
                 if (files.Count == 0)
@@ -88,7 +86,7 @@ namespace MyAssistant.ServiceImpl
                 }
 
                 // 导出为ZIP
-                var (zipBase64, success, zipErrors) = projectBuilder.ExportToZip();
+                var (zipBase64, success, zipErrors) = kernelContext.ProjectBuilder.ExportToZip();
 
                 if (success)
                 {

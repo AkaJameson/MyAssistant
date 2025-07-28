@@ -84,6 +84,8 @@ namespace MyAssistant.Core
             BuildKernelWithModel(targetModel);
         }
 
+        private ProjectBuilder _projectBuilder;
+        public ProjectBuilder ProjectBuilder => _projectBuilder;
         /// <summary>
         /// 使用指定模型配置构建 Kernel
         /// </summary>
@@ -104,7 +106,8 @@ namespace MyAssistant.Core
 
             _kernel = kernelBuilder.Build();
             _currentModel = modelConfig;
-            _kernel.Plugins.AddFromObject(new ProjectBuilder());
+            _projectBuilder = new ProjectBuilder();
+            _kernel.Plugins.AddFromObject(_projectBuilder);
             _logger.LogInformation($"Kernel 已切换到模型: {modelConfig.Model}");
         }
 
