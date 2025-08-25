@@ -46,7 +46,7 @@
                         @foreach (var session in filteredSessions)
                         {
                             <li class="list-group-item list-group-item-action @(session.SessionId == activeSessionId ? "active" : "")"
-                            @onclick="() => SetActiveSession(session.SessionId)">
+                                @onclick="() => SetActiveSession(session.SessionId)">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">@session.SessionId</h6>
                                     <small>@session.LastUpdatedAt.ToLocalTime().ToString("g")</small>
@@ -104,7 +104,7 @@
                     </div>
                     <div class="col-md-4">
                         <button class="btn btn-primary w-100" @onclick="LoadKnowledgeSet"
-                        disabled="@(string.IsNullOrEmpty(selectedKnowledgeSetId))">
+                                disabled="@(string.IsNullOrEmpty(selectedKnowledgeSetId))">
                             加载知识集
                         </button>
                     </div>
@@ -157,11 +157,11 @@
                                         <div>
                                             <small>@message.Timestamp.ToLocalTime().ToString("g")</small>
                                             <button class="btn btn-sm btn-outline-light ms-2"
-                                            @onclick="() => ExportMessage(message.AssistantResponse)">
+                                                    @onclick="() => ExportMessage(message.AssistantResponse)">
                                                 <i class="bi bi-download"></i>
                                             </button>
                                             <button class="btn btn-sm btn-outline-light ms-1"
-                                            @onclick="() => CopyToClipboard(message.AssistantResponse)">
+                                                    @onclick="() => CopyToClipboard(message.AssistantResponse)">
                                                 <i class="bi bi-clipboard"></i>
                                             </button>
                                         </div>
@@ -182,7 +182,7 @@
                 <div class="d-flex">
                     <div class="flex-grow-1 me-2 position-relative">
                         <textarea @ref="chatInputRef" class="form-control" rows="3" placeholder="输入您的问题..."
-                        @bind="newMessage" @onkeydown="HandleKeyDown" disabled="@isSending"></textarea>
+                                  @bind="newMessage" @onkeydown="HandleKeyDown" disabled="@isSending"></textarea>
                         <div class="position-absolute top-0 end-0 mt-2 me-2">
                             <label class="btn btn-sm btn-outline-secondary mb-0" title="上传文件">
                                 <i class="bi bi-paperclip"></i>
@@ -190,17 +190,18 @@
                             </label>
                         </div>
                     </div>
-                    <button class="btn btn-primary align-self-end" @onclick="SendMessage" disabled="@isSending">
+                    <button class="btn btn-primary align-self-end" @onclick="OnSendOrCancel">
                         @if (isSending)
                         {
-                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <i class="bi bi-stop">停止</i>
                         }
                         else
                         {
-                            <i class="bi bi-send"></i>
+                            <i class="bi bi-send">发送</i>
+
                         }
-                        发送
                     </button>
+
                 </div>
 
                 @if (attachedFiles.Any())
@@ -269,6 +270,7 @@
     private string techStack = "C#/.NET";
     private bool isCreatingProject = false;
     private bool _initialized = false;
+    private CancellationTokenSource? _cts;
     [Inject]
     private ILocalStorageService localStorageService { get; set; }
     [Inject]
@@ -289,7 +291,7 @@
             try
             {
                 var currentModel = await localStorageService.GetItemAsStringAsync("currentModel");
-                ModelService.SwitchModelAsync(currentModel);
+                await ModelService.SwitchModelAsync(currentModel);
                 StateHasChanged(); // 通知组件重新渲染
             }
             catch (Exception ex)
@@ -376,6 +378,15 @@
         }
         StateHasChanged();
     }
+    private async Task OnSendOrCancel()
+    {
+        if (isSending)
+        {
+            _cts?.Cancel();   // 中断流式
+            return;
+        }
+        await SendMessage();
+    }
 
     // 发送消息
     private async Task SendMessage()
@@ -383,10 +394,11 @@
         if (string.IsNullOrWhiteSpace(newMessage) && !attachedFiles.Any()) return;
 
         isSending = true;
-        var currentMessage = newMessage;
-        newMessage = ""; // 清空输入框
+        _cts = new CancellationTokenSource();
 
-        // 添加用户消息到UI
+        var currentMessage = newMessage;
+        newMessage = "";
+
         var userMessage = new ChatMessage
             {
                 UserInput = currentMessage,
@@ -396,14 +408,12 @@
         activeSession.Messages.Add(userMessage);
         activeSession.LastUpdatedAt = DateTime.UtcNow;
 
-        // 如果有上传的文件，先处理文件
         if (attachedFiles.Any())
         {
             await ChatService.AttachFileContentToSessionAsync(activeSessionId, attachedFiles.ToArray());
             attachedFiles.Clear();
         }
 
-        // 创建AI消息占位符
         var aiMessage = new ChatMessage();
         activeSession.Messages.Add(aiMessage);
         StateHasChanged();
@@ -411,10 +421,13 @@
 
         try
         {
-            // 流式接收AI响应
             var fullResponse = new StringBuilder();
+
             await foreach (var chunk in ChatService.SendMessageStreamingAsync(activeSessionId, currentMessage))
             {
+                if (_cts?.IsCancellationRequested == true)  // ⬅️ 手动检查
+                    break;
+
                 fullResponse.Append(chunk);
                 aiMessage.AssistantResponse = fullResponse.ToString();
                 aiMessage.Timestamp = DateTime.UtcNow;
@@ -425,8 +438,12 @@
         finally
         {
             isSending = false;
+            _cts?.Dispose();
+            _cts = null;
         }
+
     }
+
 
     // 处理文件上传
     private void HandleFileUpload(InputFileChangeEventArgs e)

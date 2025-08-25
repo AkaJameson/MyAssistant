@@ -1,10 +1,7 @@
 ﻿using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel;
 using MyAssistant.Core;
 using MyAssistant.IServices;
 using System.Text;
-using MyAssistant.Utils;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
 
 namespace MyAssistant.ServiceImpl
 {

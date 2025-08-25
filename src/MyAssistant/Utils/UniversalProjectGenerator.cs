@@ -221,7 +221,7 @@ namespace MyAssistant.Utils
         private static string GetStructureRequirements(ProjectContext context)
         {
             var requirements = new StringBuilder();
-
+            requirements.AppendLine(" - 方法、属性、类、接口必须添加相应注释");
             switch (context.Language)
             {
                 case "csharp":
