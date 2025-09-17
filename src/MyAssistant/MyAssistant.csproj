@@ -13,6 +13,7 @@
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.60.0" />
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.Qdrant" Version="1.60.0-preview" />
 		<PackageReference Include="Microsoft.SemanticKernel.Plugins.Memory" Version="1.60.0-alpha" />
+		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" />
 		<PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
 		<PackageReference Include="Serilog.Settings.Configuration" Version="8.0.0" />
 		<PackageReference Include="Serilog.Sinks.Async" Version="2.1.0" />
@@ -34,5 +35,7 @@
 	<PropertyGroup>
 		<ContainerRuntimeIdentifiers>linux-x64;</ContainerRuntimeIdentifiers>
 		<ContainerImageTags>1.2.3-alpha2;latest</ContainerImageTags>
+		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+		<DockerfileContext>.</DockerfileContext>
 	</PropertyGroup>
 </Project>
