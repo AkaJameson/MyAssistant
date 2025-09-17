@@ -21,4 +21,13 @@
 		<PackageReference Include="Serilog.Sinks.Seq" Version="8.0.0" />
 		<PackageReference Include="Aspose.Words" Version="25.7.0" />
 	</ItemGroup>
+	<ItemGroup>
+	  <None Update="MyAssistant.db">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+	<PropertyGroup>
+		<ContainerRuntimeIdentifiers>linux-x64;</ContainerRuntimeIdentifiers>
+		<ContainerImageTags>1.2.3-alpha2;latest</ContainerImageTags>
+	</PropertyGroup>
 </Project>

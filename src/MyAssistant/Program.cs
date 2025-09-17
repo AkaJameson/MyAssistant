@@ -28,8 +28,11 @@ public class Program
         builder.WebHost.ConfigureKestrel(options =>
         {
             options.ListenAnyIP(port);
+            options.Limits.MaxRequestBodySize = 10 * 1024 * 1024;
         });
-        builder.Services.AddSignalR(e => {
+
+        builder.Services.AddSignalR(e =>
+        {
             e.MaximumReceiveMessageSize = 102400000;
         });
 
@@ -49,7 +52,6 @@ public class Program
         builder.Services.AddBlazoredLocalStorage();
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
-
         var app = builder.Build();
 
         // Configure the HTTP request pipeline.

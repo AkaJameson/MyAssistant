@@ -7,7 +7,7 @@
 @rendermode InteractiveServer
 
 <div class="container mt-4">
-    <div class="card flex-grow-1 overflow-auto">  
+    <div class="card flex-grow-1 overflow-auto">
         <div class="card-body">
             @if (availableModels == null)
             {
@@ -30,7 +30,7 @@
                                     <small class="text-muted">@model.Endpoint</small>
                                 </div>
                                 <button class="btn @(currentModel == model.Model ? "btn-success" : "btn-outline-primary")"
-                                @onclick="() => SwitchModel(model.Model)">
+                                        @onclick="() => SwitchModel(model.Model)">
                                     @(currentModel == model.Model ? "当前使用" : "切换")
                                 </button>
                             </div>

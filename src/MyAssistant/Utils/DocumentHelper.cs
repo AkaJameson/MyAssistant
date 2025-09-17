@@ -6,7 +6,7 @@ namespace MyAssistant.Utils
 {
     public static class DocumentHelper
     {
-
+        private const long MaxFileSize = 10 * 1024 * 1024;
         private static readonly List<string> supportedTypes = new List<string>()
         {
             ".pdf",
@@ -64,7 +64,7 @@ namespace MyAssistant.Utils
         /// <returns>文本内容</returns>
         private static async Task<string> ExtractTextFromPlainFileAsync(IBrowserFile file)
         {
-            using var stream = file.OpenReadStream();
+            using var stream = file.OpenReadStream(MaxFileSize);
             using var reader = new StreamReader(stream, Encoding.UTF8);
             return await reader.ReadToEndAsync();
         }
@@ -76,7 +76,7 @@ namespace MyAssistant.Utils
         /// <returns>文档文本内容</returns>
         private static async Task<string> ExtractTextFromDocumentAsync(IBrowserFile file)
         {
-            using var stream = file.OpenReadStream();
+            using var stream = file.OpenReadStream(MaxFileSize);
 
             // 将流转换为字节数组
             using var memoryStream = new MemoryStream();
