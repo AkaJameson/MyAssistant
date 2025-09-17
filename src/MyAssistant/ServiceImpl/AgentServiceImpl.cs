@@ -44,19 +44,19 @@ namespace MyAssistant.ServiceImpl
             _logger.LogInformation($"Loaded knowledge set {set.Name} into session {sessionId}");
         }
 
-        public async Task<(string ZipBase64, bool Success, List<string> Errors)> CreateProjectFileAsync(string sessionId)
+        public async Task<(string ZipBase64, bool Success, List<string> Errors)> CreateProjectFileAsync(string sessionId, CancellationToken cancellationToken = default)
         {
             try
             {
                 var history = _chatContext.GetOrCreateChatHistory(sessionId);
                 var userHistory = string.Join("\n", history
                     .Where(m => m.Role != AuthorRole.System)
-                    .TakeLast(Math.Min(history.Count, 10)) 
+                    .TakeLast(Math.Min(history.Count, 10))
                     .Select(m => $"{m.Role}: {m.Content}"));
 
-                var result = await _projectService.CreateProjectAsync(userHistory);
+                var result = await _projectService.CreateProjectAsync(userHistory, cancellationToken);
                 return result;
-             
+
             }
             catch (Exception ex)
             {

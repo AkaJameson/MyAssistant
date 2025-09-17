@@ -36,9 +36,9 @@ public class Program
             e.MaximumReceiveMessageSize = 102400000;
         });
 
-        builder.Services.AddSingleton<KernelContext>();
-        builder.Services.AddSingleton<ChatContext>();
-        builder.Services.AddSingleton<QdrantSupport>();
+        builder.Services.AddScoped<KernelContext>();
+        builder.Services.AddScoped<ChatContext>();
+        builder.Services.AddScoped<QdrantSupport>();
 
         builder.Services.AddScoped<ChatSessionRepository>();
         builder.Services.AddScoped<KnowledgeFileRepository>();

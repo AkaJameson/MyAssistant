@@ -46,7 +46,7 @@
                         @foreach (var session in filteredSessions)
                         {
                             <li class="list-group-item list-group-item-action @(session.SessionId == activeSessionId ? "active" : "")"
-                                @onclick="() => SetActiveSession(session.SessionId)">
+                            @onclick="() => SetActiveSession(session.SessionId)">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">@session.SessionId</h6>
                                     <small>@session.LastUpdatedAt.ToLocalTime().ToString("g")</small>
@@ -104,7 +104,7 @@
                     </div>
                     <div class="col-md-4">
                         <button class="btn btn-primary w-100" @onclick="LoadKnowledgeSet"
-                                disabled="@(string.IsNullOrEmpty(selectedKnowledgeSetId))">
+                        disabled="@(string.IsNullOrEmpty(selectedKnowledgeSetId))">
                             加载知识集
                         </button>
                     </div>
@@ -157,11 +157,11 @@
                                         <div>
                                             <small>@message.Timestamp.ToLocalTime().ToString("g")</small>
                                             <button class="btn btn-sm btn-outline-light ms-2"
-                                                    @onclick="() => ExportMessage(message.AssistantResponse)">
+                                            @onclick="() => ExportMessage(message.AssistantResponse)">
                                                 <i class="bi bi-download"></i>
                                             </button>
                                             <button class="btn btn-sm btn-outline-light ms-1"
-                                                    @onclick="() => CopyToClipboard(message.AssistantResponse)">
+                                            @onclick="() => CopyToClipboard(message.AssistantResponse)">
                                                 <i class="bi bi-clipboard"></i>
                                             </button>
                                         </div>
@@ -182,7 +182,7 @@
                 <div class="d-flex">
                     <div class="flex-grow-1 me-2 position-relative">
                         <textarea @ref="chatInputRef" class="form-control" rows="3" placeholder="输入您的问题..."
-                                  @bind="newMessage" @onkeydown="HandleKeyDown" disabled="@isSending"></textarea>
+                        @bind="newMessage" @onkeydown="HandleKeyDown" disabled="@isSending"></textarea>
                         <div class="position-absolute top-0 end-0 mt-2 me-2">
                             <label class="btn btn-sm btn-outline-secondary mb-0" title="上传文件">
                                 <i class="bi bi-paperclip"></i>
@@ -423,10 +423,8 @@
         {
             var fullResponse = new StringBuilder();
 
-            await foreach (var chunk in ChatService.SendMessageStreamingAsync(activeSessionId, currentMessage))
+            await foreach (var chunk in ChatService.SendMessageStreamingAsync(activeSessionId, currentMessage, _cts.Token))
             {
-                if (_cts?.IsCancellationRequested == true)  // ⬅️ 手动检查
-                    break;
 
                 fullResponse.Append(chunk);
                 aiMessage.AssistantResponse = fullResponse.ToString();
@@ -440,6 +438,7 @@
             isSending = false;
             _cts?.Dispose();
             _cts = null;
+            StateHasChanged();
         }
 
     }
@@ -541,11 +540,15 @@
     private async Task CreateProject()
     {
         if (string.IsNullOrEmpty(activeSessionId)) return;
-
+        if (isSending)
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", "❌ 请等待当前消息发送完成后再创建项目");
+        }
         isSending = true;
         try
         {
-            var result = await AgentService.CreateProjectFileAsync(activeSessionId);
+            _cts = new CancellationTokenSource();
+            var result = await AgentService.CreateProjectFileAsync(activeSessionId,_cts.Token);
             if (!string.IsNullOrEmpty(result.ZipBase64))
             {
                 var fileName = $"project_{DateTime.Now:yyyyMMdd_HHmmss}.zip";

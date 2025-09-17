@@ -6,6 +6,7 @@ using MyAssistant.Data;
 using MyAssistant.IServices;
 using MyAssistant.Repository;
 using MyAssistant.Utils;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace MyAssistant.ServiceImpl
@@ -63,7 +64,10 @@ namespace MyAssistant.ServiceImpl
             return newSession;
         }
 
-        public async IAsyncEnumerable<string> SendMessageStreamingAsync(string sessionId, string message)
+        public async IAsyncEnumerable<string> SendMessageStreamingAsync(
+        string sessionId,
+        string message,
+     [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(sessionId))
                 throw new ArgumentException("Session ID cannot be null or empty.");
@@ -91,20 +95,32 @@ namespace MyAssistant.ServiceImpl
             var settings = new OpenAIPromptExecutionSettings { MaxTokens = 100000 };
 
             var fullResponse = new StringBuilder();
-            await foreach (var content in chatCompletion.GetStreamingChatMessageContentsAsync(history, settings))
+            try
             {
-                if (content.Content != null)
+                await foreach (var content in chatCompletion.GetStreamingChatMessageContentsAsync(
+                    history, settings, null, cancellationToken))
                 {
-                    fullResponse.Append(content.Content);
-                    yield return content.Content;
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (!string.IsNullOrEmpty(content.Content))
+                    {
+                        fullResponse.Append(content.Content);
+                        yield return content.Content;
+                    }
                 }
             }
+            finally
+            {
+                var assistantReply = fullResponse.ToString();
 
-            history.AddAssistantMessage(fullResponse.ToString());
-
-            chatMessage.AssistantResponse = fullResponse.ToString();
-            chatMessage.Timestamp = DateTime.UtcNow;
-            _sessionRepo.Update(dbSession);
+                if (!string.IsNullOrWhiteSpace(assistantReply))
+                {
+                    history.AddAssistantMessage(assistantReply);
+                    chatMessage.AssistantResponse = assistantReply;
+                    chatMessage.Timestamp = DateTime.UtcNow;
+                    _sessionRepo.Update(dbSession);
+                }
+            }
         }
 
         public async Task AttachFileContentToSessionAsync(string sessionId, IBrowserFile[] files)
